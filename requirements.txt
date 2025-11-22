@@ -1,0 +1,4 @@
+# !pip install -q torchviz graphviz
+# !apt-get install -y graphviz
+# !pip install -q monai wandb nibabel torchsummary
+# !pip install -q protobuf==3.20.3
