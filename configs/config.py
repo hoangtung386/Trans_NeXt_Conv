@@ -1,7 +1,7 @@
 """Configuration file for Trans_NeXt_Conv project"""
 import os
 import torch
-from monai.utils import set_determinism
+from monai.utils from monai.utils import set_determinism
 
 random_seed = 42
 set_determinism(seed=random_seed)

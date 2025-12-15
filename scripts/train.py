@@ -5,10 +5,10 @@ import os
 import torch
 from tqdm import tqdm
 from configs.config import CONFIG
-from training.trainer import Trainer
+from src.training.trainer import Trainer
 from src.models.initialize_model import get_model
-from data.dataloader import get_loaders
-from .evaluate import SegmentationEvaluator
+from src.data.dataloader import get_loaders
+from src.evaluation.evaluate import SegmentationEvaluator
 import wandb
 import gc
 

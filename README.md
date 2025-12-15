@@ -4,6 +4,10 @@ A hybrid CNN-Transformer architecture for multi-organ segmentation in medical im
 
 ## 🏗️ Architecture
 
+[Transformer Decoder layer](./Decoder.png)
+
+[Transformer Encoder layer](./Encoder.png)
+
 **Trans_NeXt_Conv** combines:
 - **CNN Path**: ConvNeXt-based encoder-decoder for spatial feature extraction
 - **Transformer Path**: CrossViT + MoE (Mixture of Experts) for global context

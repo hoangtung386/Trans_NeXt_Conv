@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from configs.config import CONFIG
 from src.models.initialize_model import get_model
-from data.dataloader import get_loaders
+from src.data.dataloader import get_loaders
 
 output_dir = 'Trans_next_Conv/images/evaluation_results'
 os.makedirs(output_dir, exist_ok=True)
