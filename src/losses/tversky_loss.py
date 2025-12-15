@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional
-from src.losses.utils import one_hot_encode
+from .utils import one_hot_encode
 
 class TverskyLoss(nn.Module):
     """

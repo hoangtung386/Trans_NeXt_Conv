@@ -1,7 +1,7 @@
 """Configuration file for Trans_NeXt_Conv project"""
 import os
 import torch
-from monai.utils from monai.utils import set_determinism
+from monai.utils import set_determinism
 
 random_seed = 42
 set_determinism(seed=random_seed)
@@ -21,7 +21,7 @@ CONFIG = {
     'init_features': 32,
     
     # Training hyperparameters
-    'batch_size': 64,
+    'batch_size': 4,
     'num_epochs': 100,
     'learning_rate': 1.0e-4,
     'weight_decay': 1.0e-4,
@@ -35,7 +35,7 @@ CONFIG = {
     'use_amp': True,
     'gradient_accumulation_steps': 4,
     'num_workers': 2,
-    'cache_rate': 0,
+    'cache_rate': 0.2,
     
     # Device
     'device': torch.device('cuda:0' if torch.cuda.is_available() else 'cpu'),

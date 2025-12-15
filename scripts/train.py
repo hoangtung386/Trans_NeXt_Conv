@@ -8,7 +8,7 @@ from configs.config import CONFIG
 from src.training.trainer import Trainer
 from src.models.initialize_model import get_model
 from src.data.dataloader import get_loaders
-from src.evaluation.evaluate import SegmentationEvaluator
+from src.evaluation.evaluator import SegmentationEvaluator
 import wandb
 import gc
 

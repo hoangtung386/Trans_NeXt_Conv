@@ -21,12 +21,46 @@ class RSNA2DDataset(Dataset):
         slice_idx = data_dict['slice_idx']
         
         # Load 3D volumes
-        from monai.transforms import LoadImage
-        loader = LoadImage(image_only=True)
-        
         # Load image (DICOM series)
-        image_3d = loader(image_dir)
+        import os
+        if os.path.isdir(image_dir):
+            dicom_files = sorted([os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith('.dcm')])
+            if not dicom_files:
+                # Fallback or error if empty/no dcm
+                # Maybe it is just a path to a file if not dir?
+                # But problem said it is a folder.
+                pass 
+            # Use LoadImage on list of files? Or stack?
+            # monai LoadImage can handle directory if it contains dicom series usually, but explicit is better.
+            # actually LoadImage(image_only=True)(image_dir) *should* work if it is a directory of DICOMs for some versions,
+            # but User said "LoadImage does not automatically load DICOM folder".
+            # So let's do the manual listing and stacking or pass list to LoadImage.
+            # Better: use pydicom/monai to load series properly.
+            # Simplest fix as per user suggestion:
+            from monai.transforms import LoadImage
+            loader = LoadImage(image_only=True)
+            # Check if it is a dir
+            if os.path.isdir(image_dir):
+                 dicom_files = sorted([os.path.join(image_dir, f) for f in os.listdir(image_dir) 
+                                      if f.endswith('.dcm') or f.endswith('.DCM')])
+                 if dicom_files:
+                     # Load each slice
+                     slices = []
+                     for f in dicom_files:
+                         s = loader(f)
+                         # s might be (H, W) or (1, H, W)
+                         if isinstance(s, torch.Tensor):
+                             s = s.numpy()
+                         slices.append(s)
+                     image_3d = np.stack(slices, axis=-1) # Stack along depth
+                 else:
+                     # Fallback if no dcm found
+                     image_3d = loader(image_dir)
+            else:
+                 image_3d = loader(image_dir)
+
         # Load segmentation
+        # seg_path is likely a nifti file or single file, so loader(seg_path) is fine.
         seg_3d = loader(seg_path)
         
         # Convert to numpy if torch tensor
