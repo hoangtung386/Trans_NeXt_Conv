@@ -164,18 +164,16 @@ class MixtureOfExperts(nn.Module):
         routing_weights, selected_experts = torch.topk(router_logits, self.num_activated_experts, dim=-1)
         routing_weights = F.softmax(routing_weights, dim=-1)
 
-        # Efficient expert computation
-        routed_output = torch.zeros_like(x_flat)
-        for i in range(self.num_activated_experts):
-            expert_indices = selected_experts[:, i]
-            expert_weights = routing_weights[:, i:i+1]
-            for expert_idx in range(self.num_routed_experts):
-                mask = (expert_indices == expert_idx)
-                if mask.any():
-                    token_indices = mask.nonzero(as_tuple=True)[0]
-                    expert_input = x_flat[token_indices]
-                    expert_output = self.routed_experts[expert_idx](expert_input)
-                    routed_output[token_indices] = routed_output[token_indices] + expert_output * expert_weights[token_indices]
+        # Vectorized expert computation (User suggested)
+        # Calculates all experts for all tokens - memory intensive but vectorized
+        expert_outputs = torch.stack([expert(x_flat) for expert in self.routed_experts])  # [num_experts, B*S, D]
+        
+        expert_mask = F.one_hot(selected_experts, num_classes=self.num_routed_experts)  # [B*S, K, E]
+        expert_mask = expert_mask.permute(2, 0, 1).float()  # [E, B*S, K]
+
+        # Weighted sum using einsum:
+        # e: num_experts, b: batch*seq, d: hidden_dim, k: num_activated
+        routed_output = torch.einsum('ebd,ebk,bk->bd', expert_outputs, expert_mask, routing_weights)
 
         output = shared_output + routed_output
         output = output.view(batch_size, seq_len, hidden_dim)
@@ -183,11 +181,20 @@ class MixtureOfExperts(nn.Module):
         # Simplified auxiliary losses
         expert_counts = torch.bincount(selected_experts.flatten(), minlength=self.num_routed_experts)
         load_balance_loss = expert_counts.float().var()
+        
+        # Calculate actual router entropy
+        routing_probs = F.softmax(router_logits, dim=-1)
+        router_entropy = -(routing_probs * torch.log(routing_probs + 1e-10)).sum(-1).mean()
+
+        # Calculate shared-routed balance
+        shared_output_norm = shared_output.norm(dim=-1).mean()
+        routed_output_norm = routed_output.norm(dim=-1).mean()
+        shared_routed_balance_loss = (shared_output_norm - routed_output_norm).abs()
 
         aux_loss_dict = {
             'load_balance_loss': load_balance_loss,
-            'router_entropy': torch.tensor(0.0, device=x.device),
-            'shared_routed_balance_loss': torch.tensor(0.0, device=x.device)
+            'router_entropy': router_entropy,
+            'shared_routed_balance_loss': shared_routed_balance_loss
         }
         return output, aux_loss_dict
 

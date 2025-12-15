@@ -76,7 +76,7 @@ class SegmentationEvaluator:
 
         return results
 
-    def plot_metrics(self, results):
+    def plot_metrics(self, results, show=False):
         """Plot metrics comparison"""
         metrics_to_plot = ['dice', 'iou', 'precision', 'recall', 'specificity']
 
@@ -101,7 +101,8 @@ class SegmentationEvaluator:
 
         plt.tight_layout()
         plt.savefig(os.path.join(self.output_dir, 'metrics_comparison_2d.png'), dpi=150, bbox_inches='tight')
-        plt.show() # Note: User might not see this if running headless, but keeping for compatibility
+        if show:
+            plt.show()
         print(f"Metrics plot saved to {self.output_dir}/metrics_comparison_2d.png")
 
     def visualize_predictions(self, num_samples=5):

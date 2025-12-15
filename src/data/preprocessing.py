@@ -26,10 +26,7 @@ class RSNA2DDataset(Dataset):
         if os.path.isdir(image_dir):
             dicom_files = sorted([os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith('.dcm')])
             if not dicom_files:
-                # Fallback or error if empty/no dcm
-                # Maybe it is just a path to a file if not dir?
-                # But problem said it is a folder.
-                pass 
+                raise ValueError(f"No DICOM files found in {image_dir}") 
             # Use LoadImage on list of files? Or stack?
             # monai LoadImage can handle directory if it contains dicom series usually, but explicit is better.
             # actually LoadImage(image_only=True)(image_dir) *should* work if it is a directory of DICOMs for some versions,

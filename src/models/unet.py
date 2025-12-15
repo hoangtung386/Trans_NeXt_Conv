@@ -136,7 +136,7 @@ class TransNextConv(nn.Module):
         # Output convolution
         self.out_conv = nn.Conv2d(stem_features, n_classes, kernel_size=1)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor) -> tuple[Tensor, list, dict, dict, dict]:
         batch_size = x.shape[0]
 
         ''' -------------------- TRANSFORMER ENCODER PATH -------------------- '''
@@ -177,20 +177,10 @@ class TransNextConv(nn.Module):
         spatial_h = spatial_w = self.spatial_size
         num_tokens = y3_projected.shape[1]
 
-        # Approximate square root for spatial reshape
-        spatial_dim = int(num_tokens ** 0.5)
-        if spatial_dim * spatial_dim != num_tokens:
-            # If not perfect square, use adaptive pooling
-            y3_spatial = y3_projected.permute(0, 2, 1).contiguous()  # [B, 64, num_patches]
-            y3_spatial = y3_spatial.view(batch_size, -1, spatial_dim, spatial_dim)
-            y3_spatial = F.interpolate(y3_spatial, size=(spatial_h, spatial_w),
-                                      mode='bilinear', align_corners=False)
-        else:
-            y3_spatial = y3_projected.permute(0, 2, 1).contiguous()  # [B, 64, num_patches]
-            y3_spatial = y3_spatial.view(batch_size, -1, spatial_dim, spatial_dim)
-            if spatial_dim != spatial_h:
-                y3_spatial = F.interpolate(y3_spatial, size=(spatial_h, spatial_w),
-                                          mode='bilinear', align_corners=False)
+        # Simpler version using adaptive pooling (User suggested)
+        y3_spatial = y3_projected.permute(0, 2, 1).contiguous()  # [B, 64, num_patches]
+        y3_spatial = F.adaptive_avg_pool1d(y3_spatial, spatial_h * spatial_w)
+        y3_spatial = y3_spatial.view(batch_size, -1, spatial_h, spatial_w)
 
         # Concatenate CNN and Transformer features
         fused = torch.cat([x_cnn, y3_spatial], dim=1)  # [B, 128, H, W]
@@ -200,3 +190,4 @@ class TransNextConv(nn.Module):
         output = self.out_conv(fused)  # [B, n_classes, H, W]
 
         return output, all_aux_losses, aux_loss_1, aux_loss_2, aux_loss_3
+        

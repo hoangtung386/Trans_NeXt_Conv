@@ -28,19 +28,7 @@ def get_loaders(config):
     
     val_ds = RSNA2DDataset(
         val_list, 
-        transforms=False, # Usually validation has no auth except resize/normalization which might be in transforms=True logic of RSNA2DDataset?
-        # Looking at preprocessing.py: if self.transforms: ...
-        # It seems 'transforms' flag controls resizing and normalization too?
-        # Yes, line 60: if self.transforms: ... resize ... 
-        # Wait, if transforms=False, then it returns raw images? 
-        # Line 87 just adds channel dim.
-        # But `train_ds` in original line 98 used transforms=True.
-        # `val_ds` in original line 99 used transforms=True.
-        # So I should use True for both, maybe?
-        # Usually valid set needs resize and normalization but NOT augmentation (like crop).
-        # But RSNA2DDataset calculates crop based on mask? Line 66: mask = image_2d > 0.1
-        # This seems to be a cropping strategy to find ROI. This should probably be done for Validation too if we want same input size.
-        # So I will set transforms=True for both as per original code.
+        transforms=True, 
         spatial_size=spatial_size
     )
     

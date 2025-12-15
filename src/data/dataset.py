@@ -58,7 +58,8 @@ def prepare_data(config):
                 for slice_idx in range(num_slices):
                     slice_seg = seg_data[:, :, slice_idx]
                     # Only include slices with at least some organ segmentation
-                    if np.sum(slice_seg > 0) > 100:  # At least 100 pixels with organs
+                    total_pixels = slice_seg.shape[0] * slice_seg.shape[1]
+                    if np.sum(slice_seg > 0) > total_pixels * 0.01:  # At least 1% has organs
                         data_list.append({
                             'image': image_dir,
                             'seg': seg_file_path,

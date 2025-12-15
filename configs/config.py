@@ -60,7 +60,7 @@ def validate_config(config):
         print("Warning: W&B enabled but no API key provided")
     
     if not os.path.exists(config['base_path']):
-        print(f"Warning: Data path does not exist: {config['base_path']}")
+        raise ValueError(f"Data path does not exist: {config['base_path']}")
     
     print("Configuration validated")
     return True
