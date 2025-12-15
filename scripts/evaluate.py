@@ -9,8 +9,8 @@ from matplotlib.colors import ListedColormap
 from tqdm import tqdm
 
 from configs.config import CONFIG
-from src.models.initialize_model import model_fp16
-from data.dataloader import val_loader
+from src.models.initialize_model import get_model
+from data.dataloader import get_loaders
 
 output_dir = 'Trans_next_Conv/images/evaluation_results'
 os.makedirs(output_dir, exist_ok=True)
@@ -304,7 +304,14 @@ class SegmentationEvaluator:
 
 
 if __name__ == "__main__":
-    evaluator = SegmentationEvaluator(model_fp16, val_loader, 
+    model = get_model(CONFIG)
+    # Start from scratch or load weights? Usually evaluate needs weights.
+    # Assuming user handles weight loading if running this script directly.
+    # For now just instantiating structure.
+    
+    _, val_loader = get_loaders(CONFIG)
+
+    evaluator = SegmentationEvaluator(model, val_loader, 
                     CONFIG.device, num_classes=CONFIG['num_classes'])
 
     # Compute metrics

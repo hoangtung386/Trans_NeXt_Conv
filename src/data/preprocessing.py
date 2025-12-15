@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from configs.config import CONFIG
-from .dataset import train_list, val_list
+
 
 class RSNA2DDataset(Dataset):
     def __init__(self, data_list, transforms=None, spatial_size=(256, 256)):
@@ -94,6 +94,4 @@ class RSNA2DDataset(Dataset):
         
         return {'image': image_2d, 'seg': seg_2d}
 
-if __name__ == "__main__":
-    train_ds = RSNA2DDataset(train_list, transforms=True, spatial_size=CONFIG['spatial_size'])
-    val_ds = RSNA2DDataset(val_list, transforms=True, spatial_size=CONFIG['spatial_size'])
+

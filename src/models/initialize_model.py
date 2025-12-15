@@ -1,23 +1,43 @@
-import torch 
+"""Module to initialize the TransNextConv model."""
+import torch
 from src.models.unet import TransNextConv
-from src.models.unet import quantization
-from torch.cuda.amp import autocast, GradScaler
-from quantization import ModelQuantizer
-import gc
+# from src.models.quantization import ModelQuantizer # Removed as per user request to avoid manual quantization
 from configs.config import CONFIG
 
-if __name__ == "__main__":
-    batch_size = CONFIG.batch_size
-    image_size = CONFIG.image_crop_size
+def get_model(config):
+    """
+    Initialize and return the TransNextConv model based on config.
+    """
+    image_size = config['image_crop_size'] # Assuming key is image_crop_size based on original file, but config might have spatial_size
+    # Original file used CONFIG.image_crop_size. 
+    # train.py uses spatial_size which is [H, W]. 
+    # Let's check config usage. train.py updates config with args.
+    # We should probably trust config object passed in.
+    
+    # However, CONFIG in initialize_model used CONFIG.image_crop_size directly.
+    # Let's check config.py content? I haven't seen it yet.
+    # But I can infer from initialize_model.py line 11: image_size = CONFIG.image_crop_size
+    
+    # In train.py line 34: default=CONFIG['spatial_size'] which is [H, W] probably.
+    # initialize_model line 22: image_size=image_size where image_size is int.
+    # So model expects square int?
+    
+    # Let's use config.get('image_crop_size', 256) or similar.
+    # Or better, just use what was there.
+    
+    if hasattr(config, 'image_crop_size'):
+         image_size = config.image_crop_size
+    elif isinstance(config, dict) and 'image_crop_size' in config:
+         image_size = config['image_crop_size']
+    else:
+         # Fallback or check if spatial_size is available and use first dim
+         image_size = config.get('spatial_size', [256, 256])[0] if isinstance(config, dict) else 256
 
-    # Dọn dẹp bộ nhớ trước khi bắt đầu
-    gc.collect()
-    torch.cuda.empty_cache()
-
-    n_channels = CONFIG.n_channels
-    n_classes = CONFIG.n_classes
-
-    # Create model
+    n_channels = config['n_channels'] if isinstance(config, dict) else config.n_channels
+    n_classes = config['num_classes'] if isinstance(config, dict) and 'num_classes' in config else (config['n_classes'] if isinstance(config, dict) and 'n_classes' in config else config.n_classes) 
+    # train.py uses 'num_classes', initialize_model used 'n_classes'. 
+    # config.py likely has both or train.py updates it.
+    
     model = TransNextConv(
         image_size=image_size,
         n_channels=n_channels,
@@ -28,86 +48,8 @@ if __name__ == "__main__":
         drop_p=0.0,
         embed_dim=1024
     )
-    # Quantization
-    quantizer = ModelQuantizer(model, CONFIG.device)
-
-    # Lưu ý: Hàm này sẽ biến đổi trực tiếp model in-place
-    model_fp16 = quantizer.convert_to_fp16(model)
-    model_fp16 = model.to(CONFIG.device)
-
-    # Create random input
-    # SỬA LỖI 1: Thêm .half() để chuyển input sang FP16 khớp với model
-    x = torch.randn(batch_size, n_channels, image_size, image_size).to(CONFIG.device).half()
-
-    # Forward pass
-    try:
-        with torch.no_grad():
-            # SỬA LỖI 2: Bọc trong autocast để xử lý các layer hỗn hợp (Conv FP16 -> BN FP32)
-            with autocast():
-                output = model(x)
-
-        print(f"\nForward pass successful!")
-        print(f"Input shape:  {x.shape}")
-        print(f"Output shape: {output.shape}")
-
-        # Count parameters
-        total_params = sum(p.numel() for p in model.parameters())
-        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        print(f"\nTotal parameters: {total_params:,}")
-        print(f"Trainable parameters: {trainable_params:,}")
-
-        # ... (Phần code in kiến trúc bên dưới giữ nguyên) ...
-        print("\n" + "-"*60)
-        print("MODEL ARCHITECTURE OVERVIEW")
-        print("-"*60)
-        # ...
-
-    except Exception as e:
-        print(f"\nError during forward pass:")
-        print(f"  {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
-
-
-    # Forward pass
-    try:
-        with torch.no_grad():
-            output = model(x)
-        print(f"\nForward pass successful!")
-        print(f"Input shape:  {x.shape}")
-        print(f"Output shape: {output.shape}")
-
-        # Count parameters
-        total_params = sum(p.numel() for p in model.parameters())
-        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        print(f"\nTotal parameters: {total_params:,}")
-        print(f"Trainable parameters: {trainable_params:,}")
-
-        print("\n" + "-"*60)
-        print("MODEL ARCHITECTURE OVERVIEW")
-        print("-"*60)
-        print("\nCNN Encoder Path:")
-        print(f"  in_conv:  [{n_channels}, {image_size}, {image_size}] → [64, {image_size//4}, {image_size//4}]")
-        print(f"  enc_1:    [64, {image_size//4}, {image_size//4}] → [256, {image_size//8}, {image_size//8}]")
-        print(f"  enc_2:    [256, {image_size//8}, {image_size//8}] → [512, {image_size//16}, {image_size//16}]")
-        print(f"  enc_3:    [512, {image_size//16}, {image_size//16}] → [1024, {image_size//32}, {image_size//32}]")
-
-        print("\nTransformer Path:")
-        print(f"  Encoder:  Image → Tokens → Transformer Features")
-        print(f"  Decoder:  3 layers with cross-attention and MoE")
-
-        print("\nCNN Decoder Path:")
-        print(f"  dec_1:    [1024, {image_size//32}, {image_size//32}] → [512, {image_size//16}, {image_size//16}]")
-        print(f"  dec_2:    [512, {image_size//16}, {image_size//16}] → [256, {image_size//8}, {image_size//8}]")
-        print(f"  dec_3:    [256, {image_size//8}, {image_size//8}] → [64, {image_size//4}, {image_size//4}]")
-        print(f"  upsample: [64, {image_size//4}, {image_size//4}] → [64, {image_size}, {image_size}]")
-
-        print("\nFusion & Output:")
-        print(f"  fusion:   [128, {image_size}, {image_size}] → [64, {image_size}, {image_size}]")
-        print(f"  output:   [64, {image_size}, {image_size}] → [{n_classes}, {image_size}, {image_size}]")
-
-    except Exception as e:
-        print(f"\nError during forward pass:")
-        print(f"  {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
+    
+    device = config['device'] if isinstance(config, dict) else config.device
+    model = model.to(device)
+    
+    return model

@@ -6,8 +6,8 @@ import torch
 from tqdm import tqdm
 from configs.config import CONFIG
 from training.trainer import Trainer
-from src.models.initialize_model import model_fp16
-from data.dataloader import train_loader, val_loader
+from src.models.initialize_model import get_model
+from data.dataloader import get_loaders
 from .evaluate import SegmentationEvaluator
 import wandb
 import gc
@@ -125,8 +125,12 @@ if __name__ == "__main__":
             print("Continuing without W&B logging")
             config['use_wandb'] = False
 
+    # Initialize model and data loaders
+    model = get_model(config)
+    train_loader, val_loader = get_loaders(config)
+
     trainer = Trainer(
-        model=model_fp16,
+        model=model,
         train_loader=train_loader,
         val_loader=val_loader,
         config=config,
@@ -142,13 +146,13 @@ if __name__ == "__main__":
 
     # Load Best Model for Inference
     best_checkpoint = torch.load(trainer.best_model_path, map_location=config['device'])
-    model_fp16.load_state_dict(best_checkpoint['model_state_dict'])
+    model.load_state_dict(best_checkpoint['model_state_dict'])
     print(f"Best model loaded from epoch {best_checkpoint['epoch']} with Dice: {best_checkpoint['best_dice']:.4f}")
     
-    model_fp16.eval()
+    model.eval()
 
     evaluator = SegmentationEvaluator(
-        model_fp16, val_loader, 
+        model, val_loader, 
         config['device'], 
         num_classes=config['num_classes']
     )

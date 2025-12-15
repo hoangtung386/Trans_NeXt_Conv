@@ -120,31 +120,7 @@ class Trainer:
             df = pd.DataFrame(self.history)
             df.to_csv(self.history_csv_path, index=False)
 
-    def train_epoch(self, epoch):
-        """Train one epoch"""
-        self.model.train()
-        total_loss = {'total': 0.0, 'bce': 0.0, 'dice': 0.0, 'focal': 0.0, 'tversky': 0.0, 'aux': 0.0}
 
-        pbar = tqdm(self.train_loader, desc=f"Epoch {epoch} [Train]")
-        for step, (images, masks) in pbar:
-            images = images.to(self.device)
-            masks = masks.to(self.device)
-
-            self.optimizer.zero_grad()
-
-            #########################################################################
-            """all_aux_losses: ở đây là điền tạm cho đỡ lỗi thôi chứ del đúng đâu"""
-            #########################################################################
-            outputs, all_aux_losses = self.model(images)
-            loss, loss_dict = self.criterion(outputs, masks, aux_losses=all_aux_losses)
-            loss.backward()
-            self.optimizer.step()
-
-            total_loss += loss.item()
-            pbar.set_postfix({'loss': f'{loss.item():.4f}'})
-
-        avg_loss = total_loss / len(self.train_loader)
-        return avg_loss
     
     def train_epoch(self, epoch):
         self.model.train()
@@ -161,10 +137,20 @@ class Trainer:
             if self.use_amp:
                 with autocast():
                     output, all_aux, aux1, aux2, aux3 = self.model(images)
-                    losses = self.criterion(
-                        output, masks, all_aux, aux1, aux2, aux3
-                    )
-                    loss = losses['total'] / self.accum_steps
+                    
+                    # Combine aux losses
+                    full_aux_list = []
+                    if isinstance(all_aux, list):
+                        full_aux_list.extend(all_aux)
+                    elif all_aux:
+                         full_aux_list.append(all_aux)
+                         
+                    if aux1: full_aux_list.append(aux1)
+                    if aux2: full_aux_list.append(aux2)
+                    if aux3: full_aux_list.append(aux3)
+                    
+                    # Loss signature: output, target, aux_losses=None
+                    loss, losses = self.criterion(output, masks, aux_losses=full_aux_list)
                 
                 self.scaler.scale(loss).backward()
                 
@@ -176,8 +162,20 @@ class Trainer:
                     self.optimizer.zero_grad()
             else:
                 output, all_aux, aux1, aux2, aux3 = self.model(images)
-                losses = self.criterion(output, masks, all_aux, aux1, aux2, aux3)
-                loss = losses['total'] / self.accum_steps
+                
+                # Combine aux losses
+                full_aux_list = []
+                if isinstance(all_aux, list):
+                    full_aux_list.extend(all_aux)
+                elif all_aux:
+                        full_aux_list.append(all_aux)
+                        
+                if aux1: full_aux_list.append(aux1)
+                if aux2: full_aux_list.append(aux2)
+                if aux3: full_aux_list.append(aux3)
+                
+                loss, losses = self.criterion(output, masks, aux_losses=full_aux_list)
+                loss = loss / self.accum_steps
                 loss.backward()
                 
                 if (step + 1) % self.accum_steps == 0:
@@ -212,10 +210,30 @@ class Trainer:
             if self.use_amp:
                 with autocast():
                     output, all_aux, aux1, aux2, aux3 = self.model(images)
-                    losses = self.criterion(output, masks, all_aux, aux1, aux2, aux3)
+                    
+                    full_aux_list = []
+                    if isinstance(all_aux, list):
+                        full_aux_list.extend(all_aux)
+                    elif all_aux:
+                         full_aux_list.append(all_aux)
+                    if aux1: full_aux_list.append(aux1)
+                    if aux2: full_aux_list.append(aux2)
+                    if aux3: full_aux_list.append(aux3)
+
+                    loss, losses = self.criterion(output, masks, aux_losses=full_aux_list)
             else:
                 output, all_aux, aux1, aux2, aux3 = self.model(images)
-                losses = self.criterion(output, masks, all_aux, aux1, aux2, aux3)
+
+                full_aux_list = []
+                if isinstance(all_aux, list):
+                    full_aux_list.extend(all_aux)
+                elif all_aux:
+                        full_aux_list.append(all_aux)
+                if aux1: full_aux_list.append(aux1)
+                if aux2: full_aux_list.append(aux2)
+                if aux3: full_aux_list.append(aux3)
+
+                loss, losses = self.criterion(output, masks, aux_losses=full_aux_list)
             
             for k in total_loss:
                 total_loss[k] += losses[k].item()

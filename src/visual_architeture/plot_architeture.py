@@ -4,7 +4,17 @@ from torch.cuda.amp import autocast
 from torchinfo import summary as torchinfo_summary
 import gc
 from torchviz import make_dot
-from scripts.train import model, output # Import output này là sai, bởi vì output không phải là global trong train.py
+# from scripts.train import model, output # Removed circular import
+from src.models.initialize_model import get_model
+from configs.config import CONFIG
+
+model = get_model(CONFIG)
+model.eval()
+dummy_input = torch.randn(1, 1, 256, 256).to(device) # n_channels=1 based on config
+# We need to compute output for visualization
+with autocast():
+    output = model(dummy_input)[0] 
+
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -27,7 +37,7 @@ class AutocastWrapper(nn.Module):
 
 # 3. Chuẩn bị dữ liệu
 # Lưu ý: Input tạo ra phải là .half() (FP16) để khớp với layer đầu tiên của model
-dummy_input = torch.randn(1, 3, 256, 256).to(device).half()
+dummy_input = torch.randn(1, 1, 256, 256).to(device).half()
 
 # 4. Bọc model hiện tại vào Wrapper
 # model ở đây là model đã được convert_to_fp16 (Semi-manual)
@@ -148,7 +158,7 @@ try:
 
     # 3. Chuẩn bị Input chuẩn FP16
     # Lưu ý: Input này phải nằm trên cùng device với model
-    dummy_input = torch.randn(1, 3, 256, 256).to(device).half()
+    dummy_input = torch.randn(1, 1, 256, 256).to(device).half()
 
     # 4. Bọc Model
     # Việc này giúp torchview khi chạy qua model sẽ luôn có autocast bảo vệ
