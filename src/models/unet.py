@@ -84,8 +84,8 @@ class TransNextConv(nn.Module):
         self.decoder_layer_1 = TransformerDecoderLayer(
             image_size=image_size, channels=n_channels,
             embed_dim=embed_dim, num_heads=32,
-            num_routed_experts=192, num_activated_experts=32,
-            num_shared_expert=64, router_rank=128, dropout=0.1,
+            num_routed_experts=16, num_activated_experts=2,
+            num_shared_expert=4, router_rank=64, dropout=0.1,
             first_layer=True,
             encoder_feature_channels=widths[2],  # 1024
             encoder_feature_size=encoder_feature_size,  # H/32
@@ -96,8 +96,8 @@ class TransNextConv(nn.Module):
         self.decoder_layer_2 = TransformerDecoderLayer(
             image_size=image_size, channels=n_channels,
             embed_dim=embed_dim, num_heads=32,
-            num_routed_experts=192, num_activated_experts=32,
-            num_shared_expert=64, router_rank=128, dropout=0.1,
+            num_routed_experts=16, num_activated_experts=2,
+            num_shared_expert=4, router_rank=64, dropout=0.1,
             first_layer=False,
             decoder_feature_channels=widths[0],  # 256 from dec_2 output
             decoder_feature_size=image_size // 8  # H/8
@@ -106,8 +106,8 @@ class TransNextConv(nn.Module):
         self.decoder_layer_3 = TransformerDecoderLayer(
             image_size=image_size, channels=n_channels,
             embed_dim=embed_dim, num_heads=32,
-            num_routed_experts=192, num_activated_experts=32,
-            num_shared_expert=64, router_rank=128, dropout=0.1,
+            num_routed_experts=16, num_activated_experts=2,
+            num_shared_expert=4, router_rank=64, dropout=0.1,
             first_layer=False,
             decoder_feature_channels=stem_features,  # 64 from dec_3 output
             decoder_feature_size=image_size // 4  # H/4
@@ -153,10 +153,16 @@ class TransNextConv(nn.Module):
         img_embed_cnn = self.bottleneck(x4)  # [B, 1024, H/32, W/32]
 
         ''' -------------------- CNN DECODER PATH -------------------- '''
+        ''' -------------------- CNN DECODER PATH -------------------- '''
         x5 = self.dec_1(img_embed_cnn, x3)  # [B, 512, H/16, W/16]
         x6 = self.dec_2(x5, x2)              # [B, 256, H/8, W/8]
         x7 = self.dec_3(x6, x1)              # [B, 64, H/4, W/4]
         x_cnn = self.final_upsample(x7)      # [B, 64, H, W]
+
+        # Verify dimensions
+        if x5.shape[1] != 512: print(f"Warning: x5 channels expected 512, got {x5.shape[1]}")
+        if x6.shape[1] != 256: print(f"Warning: x6 channels expected 256, got {x6.shape[1]}")
+        if x7.shape[1] != 64: print(f"Warning: x7 channels expected 64, got {x7.shape[1]}")
 
         ''' -------------------- TRANSFORMER DECODER PATH -------------------- '''
         # Layer 1: query=transformer_embed, key=original_image, value=x5, shortcut=cnn_embed

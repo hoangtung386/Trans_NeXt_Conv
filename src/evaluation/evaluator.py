@@ -33,8 +33,8 @@ class SegmentationEvaluator:
                 images = batch['image'].to(self.device)
                 labels = batch['seg'].to(self.device)
 
-                outputs = self.model(images)
-                preds = torch.argmax(outputs, dim=1)
+                output, _, _, _, _ = self.model(images)
+                preds = torch.argmax(output, dim=1)
 
                 pred_np = preds.cpu().numpy()
                 label_np = labels.cpu().numpy()
@@ -122,8 +122,8 @@ class SegmentationEvaluator:
                 images = batch['image'].to(self.device)
                 labels = batch['seg'].to(self.device)
 
-                outputs = self.model(images)
-                preds = torch.argmax(outputs, dim=1)
+                output, _, _, _, _ = self.model(images)
+                preds = torch.argmax(output, dim=1)
 
                 img_np = images[0, 0].cpu().numpy()
                 pred_np = preds[0].cpu().numpy()
@@ -179,8 +179,8 @@ class SegmentationEvaluator:
                 images = batch['image'].to(self.device)
                 labels = batch['seg'].to(self.device)
                 
-                outputs = self.model(images)
-                preds = torch.argmax(outputs, dim=1)
+                output, _, _, _, _ = self.model(images)
+                preds = torch.argmax(output, dim=1)
                 
                 img_np = images[0, 0].cpu().numpy()
                 pred_np = preds[0].cpu().numpy()
@@ -228,8 +228,8 @@ class SegmentationEvaluator:
                 images = batch['image'].to(self.device)
                 labels = batch['seg'].to(self.device)
                 
-                outputs = self.model(images)
-                preds = torch.argmax(outputs, dim=1)
+                output, _, _, _, _ = self.model(images)
+                preds = torch.argmax(output, dim=1)
                 
                 all_preds.append(preds.cpu().numpy().flatten())
                 all_labels.append(labels.cpu().numpy().flatten())

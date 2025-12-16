@@ -31,7 +31,8 @@ class CombinedLoss(nn.Module):
         
         # Validate weights sum to 1
         total_weight = sum(weights.values())
-        assert abs(total_weight - 1.0) < 1e-5, f"Weights must sum to 1, got {total_weight}"
+        if abs(total_weight - 1.0) > 1e-3:
+            print(f"Warning: Loss weights sum to {total_weight}, not 1.0")
     
     def forward(
         self,

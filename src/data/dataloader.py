@@ -13,7 +13,7 @@ def get_loaders(config):
     
     # Check if lists are empty
     if not train_list:
-        print("Warning: Training set is empty!")
+        raise ValueError("Training set is empty! Check your data path and preprocessing.")
         # We might want to handle this gracefully or let DataLoader handle it (it will be empty)
     
     spatial_size = config['spatial_size'] if isinstance(config, dict) else config.spatial_size

@@ -24,37 +24,45 @@ class RSNA2DDataset(Dataset):
         # Load image (DICOM series)
         import os
         if os.path.isdir(image_dir):
-            dicom_files = sorted([os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith('.dcm')])
-            if not dicom_files:
-                raise ValueError(f"No DICOM files found in {image_dir}") 
-            # Use LoadImage on list of files? Or stack?
-            # monai LoadImage can handle directory if it contains dicom series usually, but explicit is better.
-            # actually LoadImage(image_only=True)(image_dir) *should* work if it is a directory of DICOMs for some versions,
-            # but User said "LoadImage does not automatically load DICOM folder".
-            # So let's do the manual listing and stacking or pass list to LoadImage.
-            # Better: use pydicom/monai to load series properly.
-            # Simplest fix as per user suggestion:
-            from monai.transforms import LoadImage
-            loader = LoadImage(image_only=True)
-            # Check if it is a dir
+            import pydicom
+            
             if os.path.isdir(image_dir):
-                 dicom_files = sorted([os.path.join(image_dir, f) for f in os.listdir(image_dir) 
-                                      if f.endswith('.dcm') or f.endswith('.DCM')])
-                 if dicom_files:
-                     # Load each slice
-                     slices = []
-                     for f in dicom_files:
-                         s = loader(f)
-                         # s might be (H, W) or (1, H, W)
-                         if isinstance(s, torch.Tensor):
-                             s = s.numpy()
-                         slices.append(s)
-                     image_3d = np.stack(slices, axis=-1) # Stack along depth
-                 else:
-                     # Fallback if no dcm found
-                     image_3d = loader(image_dir)
+                dicom_files = [os.path.join(image_dir, f) for f in os.listdir(image_dir) 
+                             if f.lower().endswith('.dcm')]
+                
+                if not dicom_files:
+                     # Fallback if no dcm found, try loading directory directly with monai
+                     image_3d = LoadImage(image_only=True)(image_dir)
+                else:
+                    def get_instance_number(filepath):
+                        try:
+                            # Read only metadata first for speed
+                            dcm = pydicom.dcmread(filepath, stop_before_pixels=True)
+                            return int(dcm.InstanceNumber)
+                        except (AttributeError, ValueError):
+                            # Fallback to filename if no InstanceNumber
+                            return 0
+                            
+                    # Sort by Instance Number
+                    dicom_files.sort(key=get_instance_number)
+                    
+                    # Load slices
+                    slices = []
+                    for f in dicom_files:
+                        dcm = pydicom.dcmread(f)
+                        pixel_array = dcm.pixel_array.astype(np.float32)
+                        
+                        # Rescale intercept and slope if present
+                        if hasattr(dcm, 'RescaleIntercept') and hasattr(dcm, 'RescaleSlope'):
+                            intercept = dcm.RescaleIntercept
+                            slope = dcm.RescaleSlope
+                            pixel_array = pixel_array * slope + intercept
+                            
+                        slices.append(pixel_array)
+                        
+                    image_3d = np.stack(slices, axis=-1) # Stack along depth
             else:
-                 image_3d = loader(image_dir)
+                 image_3d = LoadImage(image_only=True)(image_dir)
 
         # Load segmentation
         # seg_path is likely a nifti file or single file, so loader(seg_path) is fine.

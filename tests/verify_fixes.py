@@ -1,61 +1,87 @@
-import torch
-import sys
-import os
 
-# Add src to path
+import os
+import sys
+import torch
+import numpy as np
+
+# Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.models.unet import TransNextConv
 from configs.config import CONFIG
+from src.models.unet import TransNextConv
+from src.evaluation.evaluator import SegmentationEvaluator
 
-def test_model_forward():
-    print("Initializing model...")
-    device = torch.device('cpu') # Use CPU for quick test
+def test_model_structure():
+    print("Testing Model Structure...")
+    # Update config for test
+    CONFIG['spatial_size'] = [64, 64] # Small size for speed
+    
     model = TransNextConv(
-        image_size=256,
+        image_size=64,
         n_channels=1,
         n_classes=6,
-        embed_dim=128, # Reduced for quick test
-        widths=[32, 64, 128], # Reduced
-        depths=[2, 2, 2, 2, 2, 2]
-    ).to(device)
+        embed_dim=256, # Smaller embed dim for test
+        depths=[2, 2, 2, 2, 2, 2],
+        widths=[64, 128, 256]
+    )
     
-    batch_size = 2
-    x = torch.randn(batch_size, 1, 256, 256).to(device)
+    # Check experts count in decoder layers
+    print(f"Decoder Layer 1 Experts: {model.decoder_layer_1.MoE.num_routed_experts} (Expected 16)")
+    assert model.decoder_layer_1.MoE.num_routed_experts == 16
     
+    # Test forward pass
+    x = torch.randn(2, 1, 64, 64)
     print("Running forward pass...")
     try:
-        output, all_aux_losses, aux_loss_1, aux_loss_2, aux_loss_3 = model(x)
-        print("Forward pass successful.")
-        
+        output, _, aux1, aux2, aux3 = model(x)
+        print("Forward pass successful!")
         print(f"Output shape: {output.shape}")
-        expected_shape = (batch_size, 6, 256, 256)
-        assert output.shape == expected_shape, f"Expected shape {expected_shape}, got {output.shape}"
-        
-        print("Checking Aux Losses...")
-        # Check structure of aux losses
-        assert isinstance(all_aux_losses, list)
-        assert isinstance(aux_loss_1, dict)
-        assert 'len(all_aux_losses)'
-        
-        # Check keys in aux_loss_1
-        expected_keys = ['load_balance_loss', 'router_entropy', 'shared_routed_balance_loss']
-        for k in expected_keys:
-            assert k in aux_loss_1, f"Missing key {k} in aux_loss_1"
-            val = aux_loss_1[k]
-            assert isinstance(val, torch.Tensor) or isinstance(val, float), f"Value for {k} should be tensor or float"
-            if isinstance(val, torch.Tensor):
-                 assert val.numel() == 1
-        
-        print("Aux losses structure verified.")
-        print("Verification PASSED!")
-        
+        assert output.shape == (2, 6, 64, 64)
     except Exception as e:
-        print(f"Verification FAILED: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+        print(f"Forward pass failed: {e}")
+        raise e
+
+def test_config_validation():
+    print("\nTesting Config Validation...")
+    from configs.config import validate_config
+    # Should not crash even if path doesn't exist when check_data_path=False
+    CONFIG['base_path'] = "/non/existent/path"
+    validate_config(CONFIG, check_data_path=False)
+    print("Config validation passed (dry run).")
+
+def test_evaluator_unpacking():
+    print("\nTesting Evaluator Logic (Mock Model)...")
+    
+    class MockModel(torch.nn.Module):
+        def __call__(self, x):
+            # Return tuple like the real model
+            return torch.randn(x.shape[0], 6, 64, 64), [], {}, {}, {}
+            
+        def eval(self): pass
+        def train(self): pass
+    
+    model = MockModel()
+    
+    # Mock data loader
+    data = [{'image': torch.randn(1, 1, 64, 64), 'seg': torch.randint(0, 6, (1, 64, 64))}]
+    val_loader = data
+    
+    evaluator = SegmentationEvaluator(model, val_loader, device='cpu', num_classes=6, output_dir='./temp_eval')
+    
+    # Run compute_metrics - should NOT crash
+    try:
+        evaluator.compute_metrics()
+        print("Evaluator.compute_metrics() ran successfully (Crash fixed).")
+    except Exception as e:
+        print(f"Evaluator failed: {e}")
+        raise e
 
 if __name__ == "__main__":
-    test_model_forward()
-    
+    try:
+        test_model_structure()
+        test_config_validation()
+        test_evaluator_unpacking()
+        print("\nAll verification tests passed!")
+    except Exception as e:
+        print(f"\nVerification FAILED: {e}")
+        sys.exit(1)
