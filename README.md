@@ -772,8 +772,8 @@ If you use this code in your research, please cite:
 @article{transnextconv2026,
   title={Trans_NeXt_Conv: A Hybrid CNN-Transformer Architecture with Mixture of Experts for Medical Image Segmentation},
   author={Le Vu Hoang Tung},
-  journal={arXiv preprint arXiv:2024.xxxxx},
-  year={2025}
+  journal={arXiv preprint arXiv:2026.xxxxx},
+  year={2026}
 }
 ```
 
