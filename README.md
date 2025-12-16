@@ -764,16 +764,16 @@ We welcome contributions! Please follow these steps:
 
 ---
 
-## 📝 Citation
+## 📝 Citation  (Coming Soon)
 
 If you use this code in your research, please cite:
 
 ```bibtex
-@article{transnextconv2024,
+@article{transnextconv2026,
   title={Trans_NeXt_Conv: A Hybrid CNN-Transformer Architecture with Mixture of Experts for Medical Image Segmentation},
-  author={Your Name},
+  author={Le Vu Hoang Tung},
   journal={arXiv preprint arXiv:2024.xxxxx},
-  year={2024}
+  year={2025}
 }
 ```
 
@@ -847,6 +847,6 @@ This project is licensed under the **Apache License 2.0** - see the [LICENSE](LI
 
 ---
 
-*Last Updated: December 2024*
+*Last Updated: December 2025*
 
 </div>
