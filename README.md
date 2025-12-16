@@ -800,16 +800,17 @@ This project is licensed under the **Apache License 2.0** - see the [LICENSE](LI
 
 ---
 
-## 📞 Contact
+## ✉️ Contact
 
 ### Maintainers
-- **Your Name** - [your.email@example.com](mailto:your.email@example.com)
-- GitHub: [@yourusername](https://github.com/yourusername)
+- **Author**: [Le Vu Hoang Tung](mailto:levuhoangtung1542003@gmail.com)
+- GitHub: [@hoangtung386](https://github.com/hoangtung386)   
+- X: [@hoangtung386](https://x.com/hoangtung386)
 
 ### Support Channels
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/your-repo/Trans_NeXt_Conv/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/your-repo/Trans_NeXt_Conv/discussions)
-- 📧 **Email**: your.email@example.com
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/hoangtung386/Trans_NeXt_Conv/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/hoangtung386/Trans_NeXt_Conv/discussions)
+- 📧 **Email**: [levuhoangtung1542003@gmail.com](mailto:levuhoangtung1542003@gmail.com)
 
 ### Acknowledgments
 - RSNA 2023 Challenge organizers for the dataset
