@@ -119,22 +119,22 @@ graph TD
     CrossViT --> TransEnc
 
     %% Complex Interactions - Layer 1
-    Bottleneck -- "Low-rank Gate" --> TDec1
+    Bottleneck -- "Gate Input<br/>(@ Dot Product Reduction)" --> TDec1
     TransEnc -- "Query" --> TDec1
-    Upsample -- "Key" --> TDec1
-    Dec1 -- "Value" --> TDec1
+    Upsample -- "Key<br/>(@ Dot Product Reduction)" --> TDec1
+    Dec1 -- "Value<br/>(@ Dot Product Reduction)" --> TDec1
 
     %% Complex Interactions - Layer 2
-    TDec1 -- "Low-rank Gate" --> TDec2
+    TDec1 -- "Gate Input<br/>(@ Dot Product Reduction)" --> TDec2
     TransEnc -- "Query" --> TDec2
-    Upsample -- "Key" --> TDec2
-    Dec2 -- "Value" --> TDec2
+    Upsample -- "Key<br/>(@ Dot Product Reduction)" --> TDec2
+    Dec2 -- "Value<br/>(@ Dot Product Reduction)" --> TDec2
 
     %% Complex Interactions - Layer 3
-    TDec2 -- "Low-rank Gate" --> TDec3
+    TDec2 -- "Gate Input<br/>(@ Dot Product Reduction)" --> TDec3
     TransEnc -- "Query" --> TDec3
-    Upsample -- "Key" --> TDec3
-    Dec3 -- "Value" --> TDec3
+    Upsample -- "Key<br/>(@ Dot Product Reduction)" --> TDec3
+    Dec3 -- "Value<br/>(@ Dot Product Reduction)" --> TDec3
 
     %% Output Path
     TDec3 --> TProj
