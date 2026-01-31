@@ -65,29 +65,29 @@ graph TD
     Input["Input Image<br/>(H x W x C)"]
     
     subgraph CNN_Path [CNN Encoder Path]
-        Stem["Stem Conv<br/>4x4, stride 4"]
-        Enc1["Encoder Block 1<br/>(H/8, W/8)"]
-        Enc2["Encoder Block 2<br/>(H/16, W/16)"]
-        Enc3["Encoder Block 3<br/>(H/32, W/32)"]
-        Bottleneck["Bottleneck<br/>(H/32, W/32)"]
+        Stem["Stem Conv"]
+        Enc1["Encoder Block 1"]
+        Enc2["Encoder Block 2"]
+        Enc3["Encoder Block 3"]
+        Bottleneck["Bottleneck"]
     end
 
     subgraph Trans_Path [Transformer Encoder Path]
         CrossViT["CrossViT Feature Extractor"]
-        TransEnc["Transformer Encoder<br/>(MoE)"]
+        TransEnc["Transformer Encoder<br/>(Output = Query)"]
     end
 
     subgraph CNN_Dec [CNN Decoder Path]
-        Dec1["Decoder Block 1<br/>(H/16, W/16)"]
-        Dec2["Decoder Block 2<br/>(H/8, W/8)"]
-        Dec3["Decoder Block 3<br/>(H/4, W/4)"]
-        Upsample["Final Upsample<br/>(H, W)"]
+        Dec1["Decoder Block 1<br/>(Value 1)"]
+        Dec2["Decoder Block 2<br/>(Value 2)"]
+        Dec3["Decoder Block 3<br/>(Value 3)"]
+        Upsample["Final Upsample<br/>(Key)"]
     end
 
     subgraph Trans_Dec [Transformer Decoder Path]
-        TDec1["Trans Decoder Layer 1<br/>(MoE + Gating)"]
-        TDec2["Trans Decoder Layer 2<br/>(MoE + Gating)"]
-        TDec3["Trans Decoder Layer 3<br/>(MoE + Gating)"]
+        TDec1["Trans Decoder Layer 1"]
+        TDec2["Trans Decoder Layer 2"]
+        TDec3["Trans Decoder Layer 3"]
         TProj["Projection to Spatial"]
     end
 
@@ -98,38 +98,46 @@ graph TD
         Output["Segmentation Mask"]
     end
 
-    %% Edge Connections - CNN Encoder
+    %% Edge Connections - CNN Path (Executes First)
     Input --> Stem
     Stem --> Enc1
     Enc1 --> Enc2
     Enc2 --> Enc3
     Enc3 --> Bottleneck
+    Bottleneck --> Dec1
+    Dec1 --> Dec2
+    Dec2 --> Dec3
+    Dec3 --> Upsample
+    
+    %% Skip Connections
+    Enc3 -.-> Dec1
+    Enc2 -.-> Dec2
+    Enc1 -.-> Dec3
 
-    %% Edge Connections - Transformer Encoder
+    %% Edge Connections - Transformer Path
     Input --> CrossViT
     CrossViT --> TransEnc
 
-    %% Edge Connections - CNN Decoder (U-Net style)
-    Bottleneck --> Dec1
-    Enc2 -. Skip Connection .-> Dec1
-    Dec1 --> Dec2
-    Enc1 -. Skip Connection .-> Dec2
-    Dec2 --> Dec3
-    Stem -. Skip Connection .-> Dec3
-    Dec3 --> Upsample
+    %% Complex Interactions - Layer 1
+    Bottleneck -- "Low-rank Gate" --> TDec1
+    TransEnc -- "Query" --> TDec1
+    Upsample -- "Key" --> TDec1
+    Dec1 -- "Value" --> TDec1
 
-    %% Edge Connections - Transformer Decoder
-    TransEnc --> TDec1
-    TDec1 --> TDec2
-    TDec2 --> TDec3
+    %% Complex Interactions - Layer 2
+    TDec1 -- "Low-rank Gate" --> TDec2
+    TransEnc -- "Query" --> TDec2
+    Upsample -- "Key" --> TDec2
+    Dec2 -- "Value" --> TDec2
+
+    %% Complex Interactions - Layer 3
+    TDec2 -- "Low-rank Gate" --> TDec3
+    TransEnc -- "Query" --> TDec3
+    Upsample -- "Key" --> TDec3
+    Dec3 -- "Value" --> TDec3
+
+    %% Output Path
     TDec3 --> TProj
-
-    %% Cross-Stream Gating Interactions
-    Dec1 -. Cross-Attn / Gating .-> TDec1
-    Dec2 -. Cross-Attn / Gating .-> TDec2
-    Dec3 -. Cross-Attn / Gating .-> TDec3
-
-    %% Fusion
     Upsample --> Concat
     TProj --> Concat
     Concat --> FusionBlk
