@@ -109,8 +109,13 @@ class TransNextConv(nn.Module):
             dropout=0.1
         )
         
-        # Part V: Transformer Decoder with Gating Mechanism
-        # 3 decoder layers that interact with CNN decoder features
+        # Part V: Transformer Decoder with Gated-Interaction
+        # 3 decoder layers that interact with 4 streams
+        
+        # Layer 1
+        # Gate Input: Bottleneck (widths[2] = 1024)
+        # Key Input: Upsample (stem_features = 64)
+        # Value Input: Dec1 (widths[1] = 512)
         self.decoder_layer_1 = TransformerDecoderLayer(
             embed_dim=embed_dim,
             num_heads=transformer_num_heads,
@@ -119,11 +124,16 @@ class TransNextConv(nn.Module):
             num_shared_expert=transformer_shared_experts,
             router_rank=64,
             dropout=0.1,
-            cnn_feature_channels=widths[1],  # 512 channels from dec_1
-            use_gating=True,
+            gate_input_dim=widths[2],
+            key_input_dim=stem_features,
+            value_input_dim=widths[1],
             gate_dim=gate_dim
         )
         
+        # Layer 2
+        # Gate Input: Layer 1 Gate Output (gate_dim = 64)
+        # Key Input: Upsample (64)
+        # Value Input: Dec2 (widths[0] = 256)
         self.decoder_layer_2 = TransformerDecoderLayer(
             embed_dim=embed_dim,
             num_heads=transformer_num_heads,
@@ -132,21 +142,27 @@ class TransNextConv(nn.Module):
             num_shared_expert=transformer_shared_experts,
             router_rank=64,
             dropout=0.1,
-            cnn_feature_channels=widths[0],  # 256 channels from dec_2
-            use_gating=True,
+            gate_input_dim=gate_dim,  # Input from previous gate
+            key_input_dim=stem_features,
+            value_input_dim=widths[0],
             gate_dim=gate_dim
         )
         
+        # Layer 3
+        # Gate Input: Layer 2 Gate Output (64)
+        # Key Input: Upsample (64)
+        # Value Input: Dec3 (stem_features = 64)
         self.decoder_layer_3 = TransformerDecoderLayer(
             embed_dim=embed_dim,
             num_heads=transformer_num_heads,
             num_routed_experts=transformer_num_experts,
-num_activated_experts=transformer_activated_experts,
+            num_activated_experts=transformer_activated_experts,
             num_shared_expert=transformer_shared_experts,
             router_rank=64,
             dropout=0.1,
-            cnn_feature_channels=stem_features,  # 64 channels from dec_3
-            use_gating=True,
+            gate_input_dim=gate_dim,
+            key_input_dim=stem_features,
+            value_input_dim=stem_features,
             gate_dim=gate_dim
         )
 
@@ -174,62 +190,89 @@ num_activated_experts=transformer_activated_experts,
         
     def forward(self, x: Tensor) -> Tuple[Tensor, list, dict, dict, dict, dict]:
         """
-        Forward pass implementing the Gated-Interaction architecture.
+        Forward pass implementing the 4-Stream Gated-Interaction architecture.
         
-        Args:
-            x: Input image [B, C, H, W]
-            
-        Returns:
-            output: Final prediction [B, n_classes, H, W]
-            all_aux_losses: List of auxiliary losses from transformer encoder
-            aux_loss_1: Auxiliary losses from decoder layer 1
-            aux_loss_2: Auxiliary losses from decoder layer 2
-            aux_loss_3: Auxiliary losses from decoder layer 3
-            gates: Dictionary of gates from each decoder layer
+        Flow:
+        1. CNN Encoder -> Bottleneck
+        2. CNN Decoder (Full) -> Final Upsample
+        3. Transformer Encoder
+        4. Transformer Decoder Layers (interacting with CNN components)
+        5. Fusion
         """
         batch_size = x.shape[0]
         gates = {}
         
-        ''' ==================== CNN ENCODER PATH (Part I) ==================== '''
+        ''' ==================== 1. CNN ENCODER PATH ==================== '''
         x1 = self.in_conv(x)      # [B, 64, H/4, W/4]
         x2 = self.enc_1(x1)       # [B, 256, H/8, W/8]
         x3 = self.enc_2(x2)       # [B, 512, H/16, W/16]
         x4 = self.enc_3(x3)       # [B, 1024, H/32, W/32]
         
-        # Bottleneck
+        # Bottleneck (Gate Source 1)
         cnn_embed = self.bottleneck(x4)  # [B, 1024, H/32, W/32]
         
-        ''' ==================== CNN DECODER PATH (Part II) ==================== '''
-        # Start decoding with bottleneck features
+        ''' ==================== 2. CNN DECODER PATH ==================== '''
+        # We run the full CNN decoder first to generate Keys and Values
+        # Value 1 Source
         x5 = self.dec_1(cnn_embed, x3)  # [B, 512, H/16, W/16]
+        
+        # Value 2 Source
         x6 = self.dec_2(x5, x2)         # [B, 256, H/8, W/8]
+        
+        # Value 3 Source
         x7 = self.dec_3(x6, x1)         # [B, 64, H/4, W/4]
+        
+        # Key Source (Final Upsample)
         cnn_output = self.final_upsample(x7)  # [B, 64, H, W]
         
-        ''' ==================== TRANSFORMER PATH ==================== '''
-        # Part III: CrossViT - multi-scale embedding
+        ''' ==================== 3. TRANSFORMER ENCODER PATH ==================== '''
+        # CrossViT - embedding
+        # Note: CrossViT consumes raw image, independent of CNN path
         img_embed_transformer = self.encode_layer_transformer(x, return_concat=True)
         
-        # Part IV: Transformer Encoder - global context
+        # Transformer Encoder - Query Source
+        # trans_embed is the Query
         trans_embed, all_aux_losses = self.transformer_encoder(img_embed_transformer)
         
-        ''' ==================== GATED INTERACTION ==================== '''
-        # Transformer Decoder layers interact with CNN Decoder features
-        # Each layer receives CNN features and returns modulated features + gate
+        ''' ==================== 4. TRANSFORMER DECODER (GATED INTERACTION) ==================== '''
         
-        # Layer 1: Interact with x5 (512 channels, H/16 x W/16)
-        y1, aux_loss_1, gate_1 = self.decoder_layer_1(trans_embed, x5)
+        # Layer 1
+        # Gate: cnn_embed (Bottleneck)
+        # Query: trans_embed
+        # Key: cnn_output (Final Upsample)
+        # Value: x5 (Dec1)
+        y1, aux_loss_1, gate_1 = self.decoder_layer_1(
+            gate_input=cnn_embed,
+            query=trans_embed,
+            key_input=cnn_output,
+            value_input=x5
+        )
         gates['layer1'] = gate_1
         
-        # Layer 2: Interact with x6 (256 channels, H/8 x W/8)
-        y2, aux_loss_2, gate_2 = self.decoder_layer_2(y1, x6)
+        # Layer 2
+        # Gate: gate_1
+        # Query: trans_embed (using y1 as updated query?? Usually Decoder passes updated query)
+        # Yes, y1 is the updated query from Layer 1.
+        y2, aux_loss_2, gate_2 = self.decoder_layer_2(
+            gate_input=gate_1,
+            query=y1,
+            key_input=cnn_output,
+            value_input=x6
+        )
         gates['layer2'] = gate_2
         
-        # Layer 3: Interact with x7 (64 channels, H/4 x H/4) then upsample
-        y3, aux_loss_3, gate_3 = self.decoder_layer_3(y2, x7)
+        # Layer 3
+        # Gate: gate_2
+        # Query: y2
+        y3, aux_loss_3, gate_3 = self.decoder_layer_3(
+            gate_input=gate_2,
+            query=y2,
+            key_input=cnn_output,
+            value_input=x7
+        )
         gates['layer3'] = gate_3
         
-        ''' ==================== FUSION ==================== '''
+        ''' ==================== 5. FUSION ==================== '''
         # Project transformer features to spatial dimensions
         y3_projected = self.transformer_to_spatial(y3)  # [B, num_patches, 64]
         
