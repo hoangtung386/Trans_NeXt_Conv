@@ -62,40 +62,40 @@ Trans_NeXt_Conv employs a **dual-encoder, shared-decoder** architecture that pro
 ```mermaid
 graph TD
     %% Nodes
-    Input[Input Image<br/>(H x W x C)]
+    Input["Input Image<br/>(H x W x C)"]
     
     subgraph CNN_Path [CNN Encoder Path]
-        Stem[Stem Conv<br/>4x4, stride 4]
-        Enc1[Encoder Block 1<br/>(H/8, W/8)]
-        Enc2[Encoder Block 2<br/>(H/16, W/16)]
-        Enc3[Encoder Block 3<br/>(H/32, W/32)]
-        Bottleneck[Bottleneck<br/>(H/32, W/32)]
+        Stem["Stem Conv<br/>4x4, stride 4"]
+        Enc1["Encoder Block 1<br/>(H/8, W/8)"]
+        Enc2["Encoder Block 2<br/>(H/16, W/16)"]
+        Enc3["Encoder Block 3<br/>(H/32, W/32)"]
+        Bottleneck["Bottleneck<br/>(H/32, W/32)"]
     end
 
     subgraph Trans_Path [Transformer Encoder Path]
-        CrossViT[CrossViT Feature Extractor]
-        TransEnc[Transformer Encoder<br/>(MoE)]
+        CrossViT["CrossViT Feature Extractor"]
+        TransEnc["Transformer Encoder<br/>(MoE)"]
     end
 
     subgraph CNN_Dec [CNN Decoder Path]
-        Dec1[Decoder Block 1<br/>(H/16, W/16)]
-        Dec2[Decoder Block 2<br/>(H/8, W/8)]
-        Dec3[Decoder Block 3<br/>(H/4, W/4)]
-        Upsample[Final Upsample<br/>(H, W)]
+        Dec1["Decoder Block 1<br/>(H/16, W/16)"]
+        Dec2["Decoder Block 2<br/>(H/8, W/8)"]
+        Dec3["Decoder Block 3<br/>(H/4, W/4)"]
+        Upsample["Final Upsample<br/>(H, W)"]
     end
 
     subgraph Trans_Dec [Transformer Decoder Path]
-        TDec1[Trans Decoder Layer 1<br/>(MoE + Gating)]
-        TDec2[Trans Decoder Layer 2<br/>(MoE + Gating)]
-        TDec3[Trans Decoder Layer 3<br/>(MoE + Gating)]
-        TProj[Projection to Spatial]
+        TDec1["Trans Decoder Layer 1<br/>(MoE + Gating)"]
+        TDec2["Trans Decoder Layer 2<br/>(MoE + Gating)"]
+        TDec3["Trans Decoder Layer 3<br/>(MoE + Gating)"]
+        TProj["Projection to Spatial"]
     end
 
     subgraph Fusion
-        Concat[Concatenation]
-        FusionBlk[Fusion Block]
-        OutConv[Output Convolution]
-        Output[Segmentation Mask]
+        Concat["Concatenation"]
+        FusionBlk["Fusion Block"]
+        OutConv["Output Convolution"]
+        Output["Segmentation Mask"]
     end
 
     %% Edge Connections - CNN Encoder
