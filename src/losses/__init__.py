@@ -1,6 +1,4 @@
-"""Initialization file for the losses module. 
-This file imports all loss functions and utilities
-so they can be accessed directly from the losses package."""
+"""Loss functions for segmentation tasks."""
 
 from .dice_loss import DiceLoss, GeneralizedDiceLoss
 from .focal_loss import FocalLoss, FocalTverskyLoss
@@ -10,9 +8,14 @@ from .combined_loss import CombinedLoss, AdaptiveLoss
 from .utils import soft_dice_score, iou_score
 
 __all__ = [
-    'DiceLoss', 'GeneralizedDiceLoss',
-    'FocalLoss', 'FocalTverskyLoss',
-    'TverskyLoss', 'BoundaryLoss',
-    'CombinedLoss', 'AdaptiveLoss',
-    'soft_dice_score', 'iou_score'
+    "DiceLoss",
+    "GeneralizedDiceLoss",
+    "FocalLoss",
+    "FocalTverskyLoss",
+    "TverskyLoss",
+    "BoundaryLoss",
+    "CombinedLoss",
+    "AdaptiveLoss",
+    "soft_dice_score",
+    "iou_score",
 ]
