@@ -1,5 +1,7 @@
-"""Configuration file for Trans_NeXt_Conv project"""
+"""Configuration file for Trans_NeXt_Conv project."""
+
 import os
+
 import torch
 from monai.utils import set_determinism
 
@@ -8,69 +10,80 @@ set_determinism(seed=random_seed)
 
 CONFIG = {
     # Reproducibility
-    'seed': random_seed,
-    
+    "seed": random_seed,
+
     # Data paths
-    'base_path': os.environ.get('DATA_PATH', "/path/to/your/data"),
-    'output_dir': "./output",
-    
+    "base_path": os.environ.get("DATA_PATH", "/path/to/your/data"),
+    "output_dir": "./output",
+
     # Model architecture
-    'n_channels': 1,
-    'num_classes': 6,
-    'spatial_size': [256, 256],  # [H, W]
-    'init_features': 32,
-    
+    "n_channels": 1,
+    "num_classes": 6,
+    "spatial_size": [256, 256],
+    "init_features": 32,
+
     # Training hyperparameters
-    'batch_size': 4,
-    'num_epochs': 100,
-    'learning_rate': 1.0e-4,
-    'weight_decay': 1.0e-4,
-    'train_split': 0.8,
-    
+    "batch_size": 4,
+    "num_epochs": 100,
+    "learning_rate": 1.0e-4,
+    "weight_decay": 1.0e-4,
+    "train_split": 0.8,
+
     # Loss weights
-    'aux_loss_weight': 0.01,
-    'load_balance_weight': 0.1,
-    
+    "aux_loss_weight": 0.01,
+    "load_balance_weight": 0.1,
+
     # Performance settings
-    'use_amp': True,
-    'gradient_accumulation_steps': 4,
-    'num_workers': 2,
-    'cache_rate': 0.2,
-    
+    "use_amp": True,
+    "gradient_accumulation_steps": 4,
+    "num_workers": 2,
+    "cache_rate": 0.2,
+
     # Device
-    'device': torch.device('cuda:0' if torch.cuda.is_available() else 'cpu'),
-    
+    "device": torch.device(
+        "cuda:0" if torch.cuda.is_available() else "cpu"
+    ),
+
     # Logging
-    'use_wandb': True,
-    'wandb_project': 'Trans_NeXt_Conv',
-    'wandb_api_key': os.environ.get('WANDB_API_KEY', None),
-    
+    "use_wandb": True,
+    "wandb_project": "Trans_NeXt_Conv",
+    "wandb_api_key": os.environ.get("WANDB_API_KEY", None),
+
     # Checkpoint
-    'save_every_n_epochs': 5,
-    'early_stopping_patience': 20,
+    "save_every_n_epochs": 5,
+    "early_stopping_patience": 20,
 }
 
+
 def validate_config(config, check_data_path=True):
-    """Validate configuration parameters"""
-    assert config['num_classes'] > 0, "num_classes must be positive"
-    assert 0 < config['train_split'] < 1, "train_split must be between 0 and 1"
-    assert len(config['spatial_size']) == 2, "spatial_size must be [H, W]"
-    
-    if config['use_wandb'] and config.get('wandb_api_key') is None:
+    """Validate configuration parameters.
+
+    Args:
+        config: Configuration dict.
+        check_data_path: Whether to verify data path exists.
+
+    Returns:
+        True if valid.
+    """
+    assert config["num_classes"] > 0, "num_classes must be positive"
+    assert 0 < config["train_split"] < 1, (
+        "train_split must be between 0 and 1"
+    )
+    assert len(config["spatial_size"]) == 2, "spatial_size must be [H, W]"
+
+    if config["use_wandb"] and config.get("wandb_api_key") is None:
         print("Warning: W&B enabled but no API key provided")
-    
-    if check_data_path and not os.path.exists(config['base_path']):
-        # Just warn instead of crash if checking path, or raise if critical
-        # User requested: raise ValueError if not exists, but we make it optional
-        if config['base_path'] != "/path/to/your/data": # Don't error on default placeholder if just importing
-             raise ValueError(f"Data path does not exist: {config['base_path']}")
-    
-    # print("Configuration validated")
+
+    if check_data_path and not os.path.exists(config["base_path"]):
+        if config["base_path"] != "/path/to/your/data":
+            raise ValueError(
+                f"Data path does not exist: {config['base_path']}"
+            )
+
     return True
 
-# Validate on import but skip data path check to avoid crash
+
 if __name__ == "__main__":
     validate_config(CONFIG, check_data_path=True)
 else:
-    # On import, just check structure
     validate_config(CONFIG, check_data_path=False)

@@ -2,13 +2,12 @@
 
 <div align="center">
 
-![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
+![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-red)
 ![License](https://img.shields.io/badge/License-Apache%202.0-green)
 ![CUDA](https://img.shields.io/badge/CUDA-11.7%2B-brightgreen)
-[![arXiv](https://img.shields.io/badge/arXiv-2024.xxxxx-b31b1b.svg)](https://arxiv.org)
 
-*A state-of-the-art deep learning architecture combining ConvNeXt and Vision Transformers with Mixture of Experts for precise multi-organ segmentation in CT scans.*
+*A deep learning architecture combining ConvNeXt and Vision Transformers with Mixture of Experts for precise multi-organ segmentation in CT scans.*
 
 [**Architecture**](#-architecture) | [**Installation**](#-installation) | [**Usage**](#-quick-start) | [**Results**](#-expected-performance) | [**Citation**](#-citation)
 
@@ -16,7 +15,7 @@
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#-overview)
 - [Architecture](#-architecture)
@@ -39,21 +38,21 @@
 
 ---
 
-## 🎯 Overview
+## Overview
 
 **Trans_NeXt_Conv** is a novel hybrid architecture that synergistically combines the strengths of CNNs and Transformers for medical image segmentation. The model addresses the challenge of accurately segmenting multiple organs in abdominal CT scans, achieving state-of-the-art performance through:
 
 - **Dual-Path Processing**: Parallel CNN and Transformer pathways for complementary feature extraction
 - **Mixture of Experts (MoE)**: Efficient, sparse computation for scalable model capacity
 - **Cross-Scale Attention**: Multi-scale feature fusion via CrossViT architecture
-- **Progressive Refinement**: Iterative decoder layers with cross-attention mechanisms
+- **Gated Interaction**: Transformer decoder modulates CNN decoder through low-rank gates
 
-**Target Dataset**: RSNA 2023 Abdominal Trauma Detection  
+**Target Dataset**: RSNA 2023 Abdominal Trauma Detection
 **Task**: Multi-organ segmentation (Liver, Spleen, Left Kidney, Right Kidney, Bowel)
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### Overall Design
 
@@ -63,7 +62,7 @@ Trans_NeXt_Conv employs a **dual-encoder, shared-decoder** architecture that pro
 graph TD
     %% Nodes
     Input["Input Image<br/>(H x W x C)"]
-    
+
     subgraph CNN_Path [CNN Encoder Path]
         Stem["Stem Conv"]
         Enc1["Encoder Block 1"]
@@ -108,7 +107,7 @@ graph TD
     Dec1 --> Dec2
     Dec2 --> Dec3
     Dec3 --> Upsample
-    
+
     %% Skip Connections
     Enc3 -.-> Dec1
     Enc2 -.-> Dec2
@@ -126,13 +125,13 @@ graph TD
 
     %% Complex Interactions - Layer 2
     TDec1 -- "Gate Input<br/>(@ Dot Product Reduction)" --> TDec2
-    TransEnc -- "Query" --> TDec2
+    TDec1 -- "Query" --> TDec2
     Upsample -- "Key<br/>(@ Dot Product Reduction)" --> TDec2
     Dec2 -- "Value<br/>(@ Dot Product Reduction)" --> TDec2
 
     %% Complex Interactions - Layer 3
     TDec2 -- "Gate Input<br/>(@ Dot Product Reduction)" --> TDec3
-    TransEnc -- "Query" --> TDec3
+    TDec2 -- "Query" --> TDec3
     Upsample -- "Key<br/>(@ Dot Product Reduction)" --> TDec3
     Dec3 -- "Value<br/>(@ Dot Product Reduction)" --> TDec3
 
@@ -147,45 +146,45 @@ graph TD
 
 ### Encoder Architecture
 
-![Encoder Architecture](./Encoder.png)
+![Encoder Architecture](./assets/Encoder.png)
 *Figure 1: Detailed Encoder Architecture with Transformer Encoder Layer magnified. The encoder extracts multi-scale features through ConvNeXt blocks and processes them with MoE-enhanced Transformer layers.*
 
 #### **CNN Encoder Path** (Left Branch)
 ```
-Input (H×W)
-  ↓ Stem Conv (4×4, stride=4)
+Input (H x W)
+  | Stem Conv (4x4, stride=4)
 [H/4, W/4, 64]
-  ↓ Encoder Block 1 (depth=3)
+  | Encoder Block 1 (depth=3)
 [H/8, W/8, 256]
-  ↓ Encoder Block 2 (depth=4)
+  | Encoder Block 2 (depth=4)
 [H/16, W/16, 512]
-  ↓ Encoder Block 3 (depth=6)
+  | Encoder Block 3 (depth=6)
 [H/32, W/32, 1024]
-  ↓ Bottleneck
+  | Bottleneck
 [H/32, W/32, 1024]
 ```
 
 **Key Components:**
-- **ConvNeXt Stem**: Aggressive downsampling (4×) with single convolution
-- **BottleNeck Blocks**: 
-  - Depthwise 7×7 convolution for spatial mixing
+- **ConvNeXt Stem**: Aggressive downsampling (4x) with single convolution
+- **BottleNeck Blocks**:
+  - Depthwise 7x7 convolution for spatial mixing
   - Layer normalization (GroupNorm)
-  - Expansion ratio 4:1 (1024 → 4096 → 1024)
+  - Expansion ratio 4:1 (1024 -> 4096 -> 1024)
   - Stochastic depth for regularization
 
 #### **Transformer Encoder Path** (Right Branch)
 ```
-Input (H×W)
-  ↓ CrossViT Feature Extractor
+Input (H x W)
+  | CrossViT Feature Extractor
 [N_patches, embed_dim=1024]
-  ↓ Transformer Encoder (MoE)
+  | Transformer Encoder (MoE)
 [N_patches, 1024]
 ```
 
 **Key Components:**
 - **CrossViT**: Multi-scale patch extraction
-  - Small patches (8×8): Fine-grained features
-  - Large patches (16×16): Global context
+  - Small patches (8x8): Fine-grained features
+  - Large patches (16x16): Global context
   - Cross-attention between scales
   - Output: Concatenated multi-scale tokens
 
@@ -194,72 +193,63 @@ Input (H×W)
   - **Routed Experts**: 32 per layer
   - **Activated Experts**: 4 per token (12.5% sparsity)
   - **Shared Experts**: 8 per layer (always active)
-  - **Attention Mechanism**: Gated attention with α/β modulation
+  - **Attention Mechanism**: Gated attention with alpha/beta modulation
   - **Router**: Low-rank (64-dim) for efficiency
 
 ### Decoder Architecture
 
-![Decoder Architecture](./Decoder.png)
-*Figure 2: Detailed Decoder Architecture with Transformer Decoder Layer magnified. The decoder progressively refines segmentation through cross-attention between CNN features and Transformer representations.*
+![Decoder Architecture](./assets/Decoder.png)
+*Figure 2: Detailed Decoder Architecture with Transformer Decoder Layer magnified. The decoder progressively refines segmentation through gated cross-attention between CNN features and Transformer representations.*
 
 #### **CNN Decoder Path**
 ```
 Bottleneck [H/32, W/32, 1024]
-  ↓ Decoder Block 1 + Skip(enc_3)
+  | Decoder Block 1 + Skip(enc_3)
 [H/16, W/16, 512]
-  ↓ Decoder Block 2 + Skip(enc_2)
+  | Decoder Block 2 + Skip(enc_2)
 [H/8, W/8, 256]
-  ↓ Decoder Block 3 + Skip(enc_1)
+  | Decoder Block 3 + Skip(enc_1)
 [H/4, W/4, 64]
-  ↓ Final Upsample (4×)
+  | Final Upsample (4x)
 [H, W, 64]
 ```
 
 **Key Components:**
 - **ConvNeXt Decoder Blocks**:
-  - Transposed convolution for upsampling (2×)
-  - Skip connection fusion via GroupNorm + 1×1 Conv
+  - Transposed convolution for upsampling (2x)
+  - Skip connection fusion via GroupNorm + 1x1 Conv
   - BottleNeck refinement (depth=2)
 
-#### **Transformer Decoder Path**
-```
-Transformer Features [N_tokens, 1024]
-  ↓ Decoder Layer 1
-[256 tokens, 1024]  ← Cross-Attn with CNN[H/16, W/16, 512]
-  ↓ Decoder Layer 2
-[1024 tokens, 1024] ← Cross-Attn with CNN[H/8, W/8, 256]
-  ↓ Decoder Layer 3
-[4096 tokens, 1024] ← Cross-Attn with CNN[H/4, W/4, 64]
-  ↓ Projection to Spatial
-[H, W, 64]
-```
+#### **Transformer Decoder Path (4-Stream Gated Interaction)**
 
-**Transformer Decoder Layer Structure** (see Figure 2):
+Each decoder layer receives 4 inputs:
 
-Each decoder layer performs:
-1. **Query Adaptation**: Adapt transformer tokens to match spatial resolution
-2. **Key Generation**: Extract keys from *original input image* via conv layers
-3. **Value Projection**: Project CNN decoder features to embed_dim
-4. **Shortcut Processing**:
-   - Layer 1: Project encoder bottleneck features
-   - Layers 2-3: Reuse previous decoder output
-5. **Gated Cross-Attention**:
-   - Multi-head attention with α/β gating
-   - Query from Transformer, Key from Image, Value from CNN
-6. **MoE Refinement**:
-   - 32 routed experts + 8 shared experts
-   - Top-4 routing per token
-   - Feed-forward transformation
+| Input    | Layer 1 Source        | Layer 2 Source   | Layer 3 Source   |
+|----------|-----------------------|------------------|------------------|
+| **Gate** | Bottleneck [1024]     | Layer 1 gate [64]| Layer 2 gate [64]|
+| **Query**| Transformer Encoder   | Layer 1 output   | Layer 2 output   |
+| **Key**  | Final Upsample [64]   | Final Upsample   | Final Upsample   |
+| **Value**| Dec Block 1 [512]     | Dec Block 2 [256]| Dec Block 3 [64] |
+
+**Mechanism per layer:**
+1. **Gate Reduction**: Spatial input -> Low-rank gate [B, gate_dim]
+2. **Key Reduction**: CNN final upsample features -> [B, N, embed_dim]
+3. **Value Reduction**: CNN decoder features -> [B, N, embed_dim]
+4. **Modulation**: Value * Gate (broadcast multiply)
+5. **Self-Attention**: Query attends to itself
+6. **Cross-Attention**: Query, Key, Modulated Value
+7. **MoE Refinement**: 32 routed + 8 shared experts
+8. **Output Gate**: New low-rank gate for next layer
 
 #### **Fusion Module**
 ```
-CNN Features [H, W, 64]  ─┐
-                          ├─ Concat → Conv → Fusion Block
-Transformer Features [H, W, 64] ─┘
-                          ↓
-                     [H, W, 64]
-                          ↓ 1×1 Conv
-                     [H, W, num_classes]
+CNN Features [H, W, 64]  --+
+                            |-- Concat -> Conv -> Fusion Block
+Transformer Features [H, W, 64] --+
+                            |
+                       [H, W, 64]
+                            | 1x1 Conv
+                       [H, W, num_classes]
 ```
 
 ### Key Components
@@ -268,20 +258,20 @@ Transformer Features [H, W, 64] ─┘
 ```
 Attention(Q, K, V, S) = Linear(Concat(head_1, ..., head_H))
 where each head_i computes:
-  - attn_i = Softmax(QK^T / √d_k) V
-  - gate_i = σ(α(V)) ⊙ V + β(V)
-  - output_i = Norm(attn_i) ⊙ Shortcut(S)
+  - attn_i = Softmax(QK^T / sqrt(d_k)) V
+  - gate_i = sigmoid(alpha(V)) * V + beta(V)
+  - output_i = Norm(attn_i) * Shortcut(S)
 ```
 
 **Purpose**: Modulate attention values with learned gates for adaptive feature selection.
 
 #### 2. **Mixture of Experts (MoE)**
 ```
-MoE(x) = Shared(x) + Σ G(x)_i · Expert_i(x)
+MoE(x) = Shared(x) + Sum G(x)_i * Expert_i(x)
 where:
   - Shared(x): Always-active experts (8 experts)
   - G(x): Router network (top-4 selection)
-  - Expert_i: Specialized feed-forward network
+  - Expert_i: Specialized feed-forward network (SwiGLU)
 ```
 
 **Auxiliary Losses**:
@@ -292,47 +282,47 @@ where:
 #### 3. **ConvNeXt Bottleneck**
 ```
 BottleNeck(x):
-  - DWConv 7×7 (grouped)
+  - DWConv 7x7 (grouped)
   - GroupNorm
-  - Linear (C → 4C)
+  - Linear (C -> 4C)
   - GELU
-  - Linear (4C → C)
-  - LayerScaler (γ = 1e-6)
+  - Linear (4C -> C)
+  - LayerScaler (gamma = 1e-6)
   - StochasticDepth (drop_path)
   - Residual connection
 ```
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 ### Model Architecture
-- ✅ **Hybrid CNN-Transformer Design**: Best of both worlds
-- ✅ **Mixture of Experts (MoE)**: Sparse, scalable computation (32 routed + 8 shared experts)
-- ✅ **Multi-Scale Cross Attention**: CrossViT-based feature extraction
-- ✅ **Progressive Refinement**: 3-layer Transformer decoder with cross-attention
-- ✅ **Skip Connections**: Multi-level feature fusion from encoder to decoder
+- **Hybrid CNN-Transformer Design**: Best of both worlds
+- **Mixture of Experts (MoE)**: Sparse, scalable computation (32 routed + 8 shared experts)
+- **Multi-Scale Cross Attention**: CrossViT-based feature extraction
+- **4-Stream Gated Decoder**: Gate, Query, Key, Value interaction across modalities
+- **Skip Connections**: Multi-level feature fusion from encoder to decoder
 
 ### Training Features
-- ✅ **Mixed Precision Training (FP16)**: 2× faster training with lower memory
-- ✅ **Gradient Accumulation**: Train with larger effective batch sizes
-- ✅ **Combined Loss Function**: Dice + Focal + Tversky with adaptive weighting
-- ✅ **Auxiliary Loss Regularization**: Load balancing and entropy losses for MoE
-- ✅ **Automatic Checkpointing**: Resume training seamlessly
-- ✅ **Weights & Biases Integration**: Real-time experiment tracking
+- **Mixed Precision Training (FP16)**: 2x faster training with lower memory
+- **Gradient Accumulation**: Train with larger effective batch sizes
+- **Combined Loss Function**: Dice + Focal + Tversky with configurable weighting
+- **Auxiliary Loss Regularization**: Load balancing and entropy losses for MoE
+- **Automatic Checkpointing**: Resume training seamlessly
+- **Weights & Biases Integration**: Real-time experiment tracking
 
 ### Data Processing
-- ✅ **Robust DICOM Loading**: Automatic slice ordering by Instance Number
-- ✅ **Intelligent Preprocessing**: Foreground cropping and intensity normalization
-- ✅ **2D Slice Extraction**: Efficient training on 2D slices from 3D volumes
-- ✅ **Organ-Focused Sampling**: Only include slices with >1% organ content
+- **Robust DICOM Loading**: Automatic slice ordering by Instance Number
+- **Intelligent Preprocessing**: Foreground cropping and intensity normalization
+- **2D Slice Extraction**: Efficient training on 2D slices from 3D volumes
+- **Organ-Focused Sampling**: Only include slices with >1% organ content
 
 ---
 
-## 📋 Requirements
+## Requirements
 
 ### System Requirements
-- **Python**: 3.8 or higher
+- **Python**: 3.9 or higher
 - **CUDA**: 11.7+ (for GPU training)
 - **RAM**: 16GB minimum, 32GB recommended
 - **GPU VRAM**: 8GB minimum (RTX 3080 or better recommended)
@@ -342,43 +332,51 @@ BottleNeck(x):
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| PyTorch | 2.0.0 - 2.1.x | Deep learning framework |
+| PyTorch | 2.0+ | Deep learning framework |
 | MONAI | 1.3.0+ | Medical imaging toolkit |
 | einops | 0.7.0+ | Tensor operations |
 | wandb | 0.15.0+ | Experiment tracking |
 | nibabel | 5.1.0+ | NIfTI file handling |
-| pydicom | 2.4.0+ | DICOM file handling |
 | scikit-image | 0.21.0+ | Image processing |
+| scikit-learn | 1.3.0+ | Data splitting and metrics |
+| torchinfo | 1.8.0+ | Model summary |
+
+Optional: `pydicom` (DICOM loading), `torchviz`/`graphviz` (architecture visualization), `kaggle` (dataset download).
 
 ---
 
-## 🚀 Installation
+## Installation
 
-### Option 1: Automatic Setup (Recommended)
+### Option 1: uv (Recommended)
 
 ```bash
 # Clone repository
-git clone https://github.com/your-repo/Trans_NeXt_Conv.git
+git clone https://github.com/hoangtung386/Trans_NeXt_Conv.git
 cd Trans_NeXt_Conv
 
-# Run setup script
-chmod +x setup.sh
-./setup.sh
+# Install with uv
+uv sync
 
-# Activate environment
-source venv/bin/activate
+# With optional dependencies
+uv sync --extra dev          # development tools (ruff, pytest, black)
+uv sync --extra dicom        # DICOM support (pydicom)
+uv sync --extra viz          # architecture visualization (torchviz, graphviz)
+uv sync --all-extras         # everything
+
+# Run scripts
+uv run python scripts/train.py
 ```
 
-### Option 2: Manual Setup
+### Option 2: pip + venv
 
 ```bash
 # Clone repository
-git clone https://github.com/your-repo/Trans_NeXt_Conv.git
+git clone https://github.com/hoangtung386/Trans_NeXt_Conv.git
 cd Trans_NeXt_Conv
 
 # Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
 pip install --upgrade pip
@@ -388,16 +386,17 @@ pip install -r requirements.txt
 mkdir -p output data
 ```
 
-### Option 3: Docker (Coming Soon)
+### Option 3: Automatic Setup
 
 ```bash
-docker pull your-repo/transnextconv:latest
-docker run --gpus all -v /path/to/data:/data your-repo/transnextconv
+chmod +x setup.sh
+./setup.sh
+source venv/bin/activate
 ```
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 ### 1. Prepare Your Dataset
 
@@ -428,29 +427,36 @@ data/
 
 ### 2. Configure Training
 
-Edit `configs/config.py`:
+Edit `configs/config.py` or set environment variables:
+
+```bash
+# Set data path via environment variable
+export DATA_PATH="/path/to/your/data"
+```
+
+Or edit `configs/config.py` directly:
 
 ```python
 CONFIG = {
-    'base_path': "/path/to/your/data",  # ⚠️ CHANGE THIS
-    'output_dir': "./output",
-    
+    "base_path": "/path/to/your/data",  # CHANGE THIS
+    "output_dir": "./output",
+
     # Model
-    'num_classes': 6,  # Background + 5 organs
-    'spatial_size': [256, 256],
-    
+    "num_classes": 6,  # Background + 5 organs
+    "spatial_size": [256, 256],
+
     # Training
-    'batch_size': 4,
-    'num_epochs': 100,
-    'learning_rate': 1e-4,
-    
+    "batch_size": 4,
+    "num_epochs": 100,
+    "learning_rate": 1e-4,
+
     # Performance
-    'use_amp': True,
-    'gradient_accumulation_steps': 4,
-    
+    "use_amp": True,
+    "gradient_accumulation_steps": 4,
+
     # Logging
-    'use_wandb': True,
-    'wandb_project': 'Trans_NeXt_Conv',
+    "use_wandb": True,
+    "wandb_project": "Trans_NeXt_Conv",
 }
 ```
 
@@ -487,7 +493,7 @@ Epoch 1/100:
   Val Dice: 0.7234
   Val IoU: 0.6512
   LR: 0.000100
-✓ Best model saved! Dice: 0.7234
+Best model saved! Dice: 0.7234
 
 ...
 ```
@@ -509,13 +515,13 @@ python scripts/evaluate.py
 
 ```bash
 # Single 2D slice
-python predict.py \
+python scripts/predict.py \
     --image_path /path/to/image.nii \
     --checkpoint output/best_model.pth \
     --output_path prediction.png
 
 # Specific slice from 3D volume
-python predict.py \
+python scripts/predict.py \
     --image_path /path/to/volume.nii \
     --checkpoint output/best_model.pth \
     --slice_idx 50 \
@@ -524,63 +530,82 @@ python predict.py \
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 Trans_NeXt_Conv/
 ├── configs/
-│   └── config.py                   # Configuration settings
+│   └── config.py                          # Configuration settings
 │
 ├── src/
 │   ├── data/
-│   │   ├── dataset.py             # Dataset preparation & splitting
-│   │   ├── dataloader.py          # DataLoader factory
-│   │   └── preprocessing.py       # DICOM loading & preprocessing
+│   │   ├── dataset.py                     # Dataset preparation & splitting
+│   │   ├── dataloader.py                  # DataLoader factory
+│   │   └── preprocessing.py               # DICOM loading & preprocessing
 │   │
 │   ├── losses/
-│   │   ├── dice_loss.py           # Dice & Generalized Dice Loss
-│   │   ├── focal_loss.py          # Focal & Focal Tversky Loss
-│   │   ├── tversky_loss.py        # Tversky Loss
-│   │   ├── boundary_loss.py       # Boundary Loss
-│   │   ├── combined_loss.py       # Multi-loss combination
-│   │   └── utils.py               # Loss utilities
+│   │   ├── dice_loss.py                   # Dice & Generalized Dice Loss
+│   │   ├── focal_loss.py                  # Focal & Focal Tversky Loss
+│   │   ├── tversky_loss.py                # Tversky Loss
+│   │   ├── boundary_loss.py               # Boundary Loss
+│   │   ├── combined_loss.py               # Multi-loss combination
+│   │   └── utils.py                       # Loss utilities
 │   │
 │   ├── metrics/
-│   │   └── compute_metric.py      # Evaluation metrics
+│   │   └── compute_metric.py              # Evaluation metrics (Dice, IoU)
 │   │
 │   ├── models/
-│   │   ├── unet.py               # Main TransNextConv model
-│   │   ├── attention_cnn.py      # ConvNeXt encoder/decoder
-│   │   ├── segformer.py          # Transformer components & MoE
-│   │   ├── nn.py                 # Utility layers
-│   │   └── initialize_model.py   # Model initialization
+│   │   ├── trans_next_conv.py             # Main TransNextConv model
+│   │   ├── convnext.py                    # ConvNeXt encoder/decoder blocks
+│   │   ├── nn.py                          # Utility layers (RMSNorm, LayerScaler)
+│   │   ├── gating.py                      # Low-rank gating mechanism
+│   │   ├── initialize_model.py            # Model initialization factory
+│   │   ├── attention/                     # Attention mechanisms
+│   │   │   ├── scaled_attention.py        #   Scaled dot-product attention
+│   │   │   ├── gated_attention.py         #   Gated multi-head attention
+│   │   │   └── vit_attention.py           #   ViT-style attention & FFN
+│   │   ├── moe/                           # Mixture of Experts
+│   │   │   ├── experts.py                 #   Expert & AdvancedExpert
+│   │   │   └── mixture.py                 #   MixtureOfExperts router
+│   │   ├── crossvit/                      # CrossViT multi-scale transformer
+│   │   │   ├── embedder.py                #   Image patch embedding
+│   │   │   ├── cross_transformer.py       #   Cross-attention between scales
+│   │   │   ├── encoder.py                 #   Multi-scale encoder
+│   │   │   └── crossvit.py                #   CrossViT main class
+│   │   └── transformer/                   # Transformer encoder & decoder
+│   │       ├── encoder.py                 #   MoE-enhanced encoder
+│   │       └── decoder.py                 #   4-stream gated decoder
 │   │
 │   ├── training/
-│   │   └── trainer.py            # Training loop
+│   │   └── trainer.py                     # Training loop with AMP
 │   │
-│   └── evaluation/
-│       └── evaluator.py          # Evaluation & visualization
+│   ├── evaluation/
+│   │   └── evaluator.py                   # Metrics & visualization
+│   │
+│   └── visualization/
+│       └── plot_architecture.py           # Architecture diagram generation
 │
 ├── scripts/
-│   ├── train.py                  # Training script
-│   ├── evaluate.py               # Evaluation script
-│   └── prepare_data.py           # Data download script
+│   ├── train.py                           # Training script (CLI)
+│   ├── evaluate.py                        # Evaluation script
+│   ├── predict.py                         # Inference script
+│   └── prepare_data.py                    # Dataset download script
 │
-├── tests/
-│   └── verify_fixes.py           # Unit tests
+├── assets/
+│   ├── Encoder.png                        # Encoder architecture diagram
+│   └── Decoder.png                        # Decoder architecture diagram
 │
-├── predict.py                    # Inference script
-├── setup.sh                      # Setup script
-├── requirements.txt              # Dependencies
-├── Encoder.png                   # Encoder architecture diagram
-├── Decoder.png                   # Decoder architecture diagram
-├── README.md                     # This file
-└── LICENSE                       # Apache 2.0 License
+├── pyproject.toml                         # Project metadata & uv/pip config
+├── requirements.txt                       # pip dependencies
+├── setup.sh                               # Setup script
+├── .gitignore                             # Git ignore rules
+├── LICENSE                                # Apache 2.0 License
+└── README.md                             # This file
 ```
 
 ---
 
-## 🎓 Training
+## Training
 
 ### Command Line Arguments
 
@@ -640,35 +665,33 @@ python scripts/train.py \
 
 **Learning Rate Schedule:**
 - Default: Cosine Annealing with Warm Restarts (T_0=10, T_mult=2)
-- Warm-up: First 5 epochs with linear ramp-up
 - Adjust in `src/training/trainer.py`
 
 **Loss Weights:**
 ```python
-# Default weights
+# Default weights (in src/training/trainer.py)
 weights = {
-    'dice': 0.5,    # Primary metric for segmentation
-    'focal': 0.3,   # Handle class imbalance
-    'tversky': 0.2  # Control FP/FN trade-off
+    "dice": 0.5,    # Primary metric for segmentation
+    "focal": 0.3,   # Handle class imbalance
+    "tversky": 0.2,  # Control FP/FN trade-off
 }
 
-# For small organs (e.g., Bowel)
+# For small organs (e.g., Bowel) - increase focal weight
 weights = {
-    'dice': 0.4,
-    'focal': 0.4,   # Increase focal weight
-    'tversky': 0.2
+    "dice": 0.4,
+    "focal": 0.4,
+    "tversky": 0.2,
 }
 ```
 
-**MoE Auxiliary Loss Weights:**
+**MoE Auxiliary Loss Weight:**
 ```python
-'aux_loss_weight': 0.1,        # Overall MoE loss weight
-'load_balance_weight': 0.01,   # Expert utilization balance
+"aux_loss_weight": 0.01,  # in configs/config.py
 ```
 
 ---
 
-## 📊 Evaluation
+## Evaluation
 
 ### Metrics Computed
 
@@ -690,12 +713,12 @@ weights = {
 
 ---
 
-## 🎯 Expected Performance
+## Expected Performance
 
 ### Baseline Results (100 epochs)
 
-| Organ | Dice ↑ | IoU ↑ | Precision ↑ | Recall ↑ | Specificity ↑ |
-|-------|--------|-------|-------------|----------|---------------|
+| Organ | Dice | IoU | Precision | Recall | Specificity |
+|-------|------|-----|-----------|--------|-------------|
 | **Liver** | 0.92 | 0.85 | 0.91 | 0.93 | 0.99 |
 | **Spleen** | 0.88 | 0.79 | 0.87 | 0.89 | 0.99 |
 | **Kidney (L)** | 0.90 | 0.82 | 0.89 | 0.91 | 0.99 |
@@ -703,10 +726,7 @@ weights = {
 | **Bowel** | 0.75 | 0.60 | 0.74 | 0.76 | 0.97 |
 | **Average** | 0.87 | 0.78 | 0.86 | 0.88 | 0.99 |
 
-**Note**: Results vary based on:
-- Dataset quality and size
-- Training duration and hyperparameters
-- Hardware (GPU memory affects batch size)
+**Note**: Results vary based on dataset quality, training duration, hyperparameters, and hardware.
 
 ### Training Time
 
@@ -718,7 +738,7 @@ weights = {
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -734,10 +754,6 @@ python scripts/train.py --batch_size 2
 
 # Increase gradient accumulation
 python scripts/train.py --gradient_accumulation_steps 8
-
-# Reduce model size (edit config.py)
-CONFIG['init_features'] = 24  # Default: 32
-CONFIG['widths'] = [128, 256, 512]  # Default: [256, 512, 1024]
 ```
 
 #### 2. Data Not Found
@@ -750,8 +766,7 @@ ValueError: Data path does not exist: /path/to/your/data
 # Set environment variable
 export DATA_PATH="/path/to/your/data"
 
-# Or edit config.py
-CONFIG['base_path'] = "/absolute/path/to/data"
+# Or edit configs/config.py directly
 ```
 
 #### 3. Empty Training Set
@@ -770,8 +785,8 @@ ValueError: Training set is empty!
 ls $DATA_PATH/segmentations/*.nii
 ls $DATA_PATH/train_images/
 
-# Lower organ ratio threshold in src/data/dataset.py
-min_organ_ratio = 0.001  # Default: 0.01 (1%)
+# Lower organ ratio threshold (set in config or dataset.py)
+# min_organ_ratio = 0.001  # Default: 0.01 (1%)
 ```
 
 #### 4. W&B Authentication Failed
@@ -809,34 +824,32 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)"
 #### 6. Slow Training Speed
 
 **Causes & Solutions:**
-- ❌ AMP disabled → Enable: `--use_amp`
-- ❌ Too many workers → Reduce: `--num_workers 2`
-- ❌ No data caching → Increase: `--cache_rate 0.5`
-- ❌ CPU bottleneck → Use SSD for data storage
+- AMP disabled -> Enable: `--use_amp`
+- Too many workers -> Reduce: `--num_workers 2`
+- CPU bottleneck -> Use SSD for data storage
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-We welcome contributions! Please follow these steps:
+Contributions are welcome! Please follow these steps:
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
 3. Make your changes
-4. Test thoroughly: `python tests/verify_fixes.py`
-5. Commit: `git commit -m 'Add amazing feature'`
-6. Push: `git push origin feature/amazing-feature`
-7. Open a Pull Request
+4. Commit: `git commit -m 'Add amazing feature'`
+5. Push: `git push origin feature/amazing-feature`
+6. Open a Pull Request
 
 ### Code Style
-- Follow PEP 8
-- Add docstrings (Google style)
+- Follow PEP 8 (enforced via `ruff`)
+- Add docstrings for public APIs
 - Type hints for function signatures
-- Test all changes
+- Run `ruff check .` before committing
 
 ---
 
-## 📝 Citation  (Coming Soon)
+## Citation
 
 If you use this code in your research, please cite:
 
@@ -844,7 +857,6 @@ If you use this code in your research, please cite:
 @article{transnextconv2026,
   title={Trans_NeXt_Conv: A Hybrid CNN-Transformer Architecture with Mixture of Experts for Medical Image Segmentation},
   author={Le Vu Hoang Tung},
-  journal={arXiv preprint arXiv:2026.xxxxx},
   year={2026}
 }
 ```
@@ -859,30 +871,23 @@ This project builds upon:
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the **Apache License 2.0** - see the [LICENSE](LICENSE) file for details.
 
-### Key Points:
-- ✅ Free for commercial and research use
-- ✅ Modification and distribution allowed
-- ✅ Patent grant included
-- ❌ No warranty provided
-- ❌ Trademark rights not granted
-
 ---
 
-## ✉️ Contact
+## Contact
 
 ### Maintainers
 - **Author**: [Le Vu Hoang Tung](mailto:levuhoangtung1542003@gmail.com)
-- GitHub: [@hoangtung386](https://github.com/hoangtung386)   
+- GitHub: [@hoangtung386](https://github.com/hoangtung386)
 - X: [@hoangtung386](https://x.com/hoangtung386)
 
 ### Support Channels
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/hoangtung386/Trans_NeXt_Conv/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/hoangtung386/Trans_NeXt_Conv/discussions)
-- 📧 **Email**: [levuhoangtung1542003@gmail.com](mailto:levuhoangtung1542003@gmail.com)
+- **Bug Reports**: [GitHub Issues](https://github.com/hoangtung386/Trans_NeXt_Conv/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/hoangtung386/Trans_NeXt_Conv/discussions)
+- **Email**: [levuhoangtung1542003@gmail.com](mailto:levuhoangtung1542003@gmail.com)
 
 ### Acknowledgments
 - RSNA 2023 Challenge organizers for the dataset
@@ -891,13 +896,15 @@ This project is licensed under the **Apache License 2.0** - see the [LICENSE](LI
 
 ---
 
-## 🗺️ Roadmap
+## Roadmap
 
-### Current Version (v1.0)
+### Current Version (v0.1.0)
 - [x] Hybrid CNN-Transformer architecture
 - [x] Mixture of Experts integration
-- [x] Multi-scale feature fusion
+- [x] Multi-scale feature fusion (CrossViT)
+- [x] 4-stream gated decoder interaction
 - [x] Comprehensive evaluation suite
+- [x] uv / pyproject.toml support
 
 ### Future Work
 - [ ] 3D volumetric segmentation support
@@ -906,19 +913,12 @@ This project is licensed under the **Apache License 2.0** - see the [LICENSE](LI
 - [ ] TensorRT optimization
 - [ ] Web demo interface
 - [ ] Pre-trained model zoo
-- [ ] Transfer learning scripts
 - [ ] Docker container
 
 ---
 
 <div align="center">
 
-**⭐ Star us on GitHub — it motivates us a lot!**
-
-[**Report Bug**](https://github.com/your-repo/Trans_NeXt_Conv/issues) · [**Request Feature**](https://github.com/your-repo/Trans_NeXt_Conv/issues) · [**Documentation**](https://your-docs-site.com)
-
----
-
-*Last Updated: December 2025*
+[**Report Bug**](https://github.com/hoangtung386/Trans_NeXt_Conv/issues) | [**Request Feature**](https://github.com/hoangtung386/Trans_NeXt_Conv/issues)
 
 </div>

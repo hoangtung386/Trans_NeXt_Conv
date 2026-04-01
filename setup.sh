@@ -6,11 +6,11 @@ set -e
 echo "=== Trans_NeXt_Conv Setup ==="
 
 # 1. Create virtual environment
-if [ ! -d "venv" ]; then
+if [ ! -d ".venv" ]; then
     echo "Creating virtual environment..."
-    python3 -m venv venv
+    python3 -m venv .venv
 fi
-source venv/bin/activate
+source .venv/bin/activate
 
 # 2. Install dependencies
 echo "Installing dependencies..."
@@ -22,14 +22,11 @@ else
 fi
 
 # Install optional dev dependencies
-pip install ipykernel black flake8
+pip install ipykernel ruff
 
 # 3. Create directories
 echo "Creating project directories..."
-mkdir -p output
-mkdir -p data
-mkdir -p src/evaluation
-mkdir -p Trans_next_Conv/images/evaluation_results
+mkdir -p output data
 
 # 4. Prompt for Kaggle API
 if [ ! -f ~/.kaggle/kaggle.json ]; then
@@ -41,4 +38,4 @@ fi
 
 echo ""
 echo "=== Setup Complete! ==="
-echo "Activate environment with: source venv/bin/activate"
+echo "Activate environment with: source .venv/bin/activate"

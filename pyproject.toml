@@ -1,0 +1,137 @@
+[project]
+name = "trans-next-conv"
+version = "0.1.0"
+description = "Hybrid CNN-Transformer architecture with Mixture of Experts for multi-organ medical image segmentation"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+authors = [
+    { name = "Sotatek-TungLe8" },
+]
+keywords = [
+    "medical-imaging",
+    "segmentation",
+    "deep-learning",
+    "transformer",
+    "convnext",
+    "mixture-of-experts",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+
+dependencies = [
+    # Core deep learning
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "torchaudio>=2.0.0",
+
+    # Medical imaging
+    "monai>=1.3.0",
+    "nibabel>=5.1.0",
+
+    # Transformer utilities
+    "einops>=0.7.0",
+
+    # Data processing
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "scikit-learn>=1.3.0",
+    "scikit-image>=0.21.0",
+    "scipy>=1.11.0",
+    "Pillow>=10.0.0",
+
+    # Training & logging
+    "wandb>=0.15.0",
+    "tqdm>=4.66.0",
+
+    # Visualization
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+
+    # Model inspection
+    "torchinfo>=1.8.0",
+]
+
+[project.optional-dependencies]
+viz = [
+    "torchviz>=0.0.2",
+    "graphviz>=0.20.0",
+]
+dicom = [
+    "pydicom>=2.4.0",
+]
+kaggle = [
+    "kaggle>=1.5.0",
+]
+dev = [
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ipykernel>=6.0.0",
+]
+all = [
+    "trans-next-conv[viz,dicom,kaggle,dev]",
+]
+
+[project.urls]
+Repository = "https://github.com/Sotatek-TungLe8/Trans_NeXt_Conv"
+
+[project.scripts]
+train = "scripts.train:main"
+evaluate = "scripts.evaluate:main"
+predict = "scripts.predict:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src", "configs"]
+
+# ==================== Tool configs ====================
+
+[tool.ruff]
+target-version = "py39"
+line-length = 79
+fix = true
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B905",  # zip without strict
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src", "configs"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.black]
+target-version = ["py39"]
+line-length = 79
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"

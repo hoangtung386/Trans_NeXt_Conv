@@ -1,1 +1,1 @@
-"""Training logic package"""
+"""Training pipeline package."""

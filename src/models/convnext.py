@@ -1,17 +1,30 @@
+"""ConvNeXt-based CNN encoder and decoder blocks."""
+
 import torch
-from torch import nn
-from torch import Tensor
+from torch import nn, Tensor
 from torchvision.ops import StochasticDepth
+
 from .nn import LayerScaler
 
+
 class BottleNeckBlock(nn.Module):
-    def __init__(self, in_features: int, out_features: int,
-                 expansion: int = 4, drop_p: float = 0.0,
-                 layer_scaler_init_value: float = 1e-6):
+    """ConvNeXt bottleneck block with depthwise conv and stochastic depth."""
+
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        expansion: int = 4,
+        drop_p: float = 0.0,
+        layer_scaler_init_value: float = 1e-6,
+    ):
         super().__init__()
         expanded_features = out_features * expansion
         self.block = nn.Sequential(
-            nn.Conv2d(in_features, in_features, kernel_size=7, padding=3, bias=False, groups=in_features),
+            nn.Conv2d(
+                in_features, in_features, kernel_size=7,
+                padding=3, bias=False, groups=in_features,
+            ),
             nn.GroupNorm(num_groups=1, num_channels=in_features),
             nn.Conv2d(in_features, expanded_features, kernel_size=1),
             nn.GELU(),
@@ -28,43 +41,65 @@ class BottleNeckBlock(nn.Module):
         x += res
         return x
 
+
 class ConvNextStem(nn.Sequential):
-    """Initial downsampling stem"""
+    """Initial 4x downsampling stem."""
+
     def __init__(self, in_features: int, out_features: int):
         super().__init__(
             nn.Conv2d(in_features, out_features, kernel_size=4, stride=4),
-            nn.BatchNorm2d(out_features)
+            nn.BatchNorm2d(out_features),
         )
 
+
 class ConvNextEncoder(nn.Module):
-    """Encoder block: Downsample + BottleNeck blocks"""
-    def __init__(self, in_features: int, out_features: int, depth: int, drop_p: float = 0.0):
+    """Encoder block: downsample + stacked BottleNeck blocks."""
+
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        depth: int,
+        drop_p: float = 0.0,
+    ):
         super().__init__()
         self.downsample = nn.Sequential(
             nn.GroupNorm(num_groups=1, num_channels=in_features),
-            nn.Conv2d(in_features, out_features, kernel_size=2, stride=2)
+            nn.Conv2d(in_features, out_features, kernel_size=2, stride=2),
         )
-        self.blocks = nn.Sequential(
-            *[BottleNeckBlock(out_features, out_features, drop_p=drop_p) for _ in range(depth)]
-        )
+        self.blocks = nn.Sequential(*[
+            BottleNeckBlock(out_features, out_features, drop_p=drop_p)
+            for _ in range(depth)
+        ])
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.downsample(x)
         x = self.blocks(x)
         return x
 
+
 class ConvNextDecoder(nn.Module):
-    """Decoder block: Upsample + Skip Connection + BottleNeck blocks"""
-    def __init__(self, in_features: int, out_features: int, depth: int = 2, drop_p: float = 0.0):
+    """Decoder block: upsample + skip connection + BottleNeck blocks."""
+
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        depth: int = 2,
+        drop_p: float = 0.0,
+    ):
         super().__init__()
-        self.upsample = nn.ConvTranspose2d(in_features, out_features, kernel_size=2, stride=2)
+        self.upsample = nn.ConvTranspose2d(
+            in_features, out_features, kernel_size=2, stride=2,
+        )
         self.fusion = nn.Sequential(
             nn.GroupNorm(num_groups=1, num_channels=out_features * 2),
             nn.Conv2d(out_features * 2, out_features, kernel_size=1),
         )
-        self.blocks = nn.Sequential(
-            *[BottleNeckBlock(out_features, out_features, drop_p=drop_p) for _ in range(depth)]
-        )
+        self.blocks = nn.Sequential(*[
+            BottleNeckBlock(out_features, out_features, drop_p=drop_p)
+            for _ in range(depth)
+        ])
 
     def forward(self, x: Tensor, skip: Tensor) -> Tensor:
         x = self.upsample(x)
