@@ -25,7 +25,7 @@ class SegmentationEvaluator:
         val_loader,
         device,
         num_classes=6,
-        output_dir="Trans_next_Conv/images/evaluation_results",
+        output_dir="./output/evaluation_results",
     ):
         self.model = model
         self.val_loader = val_loader

@@ -8,7 +8,7 @@ from src.evaluation.evaluator import SegmentationEvaluator
 from src.models.initialize_model import get_model
 
 if __name__ == "__main__":
-    output_dir = "Trans_next_Conv/images/evaluation_results"
+    output_dir = os.path.join(CONFIG["output_dir"], "evaluation_results")
     os.makedirs(output_dir, exist_ok=True)
 
     model = get_model(CONFIG)

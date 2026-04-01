@@ -14,7 +14,6 @@ from .convnext import (
 from .transformer.encoder import TransformerEncoder
 from .crossvit import CrossViT
 from .transformer.decoder import TransformerDecoderLayer
-from .gating import GatingMechanism
 
 
 class TransNextConv(nn.Module):
