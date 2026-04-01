@@ -1,0 +1,83 @@
+# ========== Python ==========
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+*.whl
+
+# ========== Virtual environments ==========
+venv/
+.venv/
+env/
+.env/
+.conda/
+
+# ========== uv ==========
+.python-version
+uv.lock
+
+# ========== IDE ==========
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# ========== Jupyter ==========
+.ipynb_checkpoints/
+*.ipynb
+
+# ========== Data & datasets ==========
+/data/
+/datasets/
+train_images/
+segmentations/
+*.nii
+*.nii.gz
+*.dcm
+*.dicom
+
+# ========== Model outputs ==========
+output/
+checkpoints/
+*.pth
+*.pt
+*.onnx
+*.bin
+
+# ========== Experiment tracking ==========
+wandb/
+runs/
+mlruns/
+lightning_logs/
+
+# ========== Visualization outputs ==========
+Trans_next_Conv/
+model_architecture_*.png
+model_architecture_*.svg
+model_architecture_*.pdf
+model_architecture_*.gv
+evaluation_results/
+
+# ========== OS files ==========
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========== Misc ==========
+*.log
+*.csv
+*.zip
+*.tar.gz
+*.7z
+.cache/
+tmp/
+temp/
+REFACTORING_GUIDE.md
